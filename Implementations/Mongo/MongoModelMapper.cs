@@ -1,31 +1,70 @@
 ﻿using MongoDB.Bson.Serialization;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
+using MongoDB.Driver.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DataAccess
 {
     internal static class MongoModelMapper
     {
+        [Flags]
+        private enum SearchDirection
+        {
+            Stop = 0x00,
+            Derived = 0x01,
+            Based = 0x02,
+            Both = Derived | Based,
+        }
+
+        private static HashSet<Type> _registry = new();
+
         internal static void RegisterModel<TModel>()
         {
-            RegisterDerivedTypes(typeof(TModel));
+            Type type = typeof(TModel);
+            RegisterModel(type, SearchDirection.Both);
+        }
 
-            foreach(Type type in typeof(TModel).GetMembers(BindingFlags.Public | BindingFlags.Instance).Where(m => m.MemberType == (MemberTypes.Property | MemberTypes.Field)).Select(m => m.GetType()))
+        private static void RegisterModel(Type type, SearchDirection direction)
+        {
+            if (type == null || _registry.Contains(type)) return;
+            _registry.Add(type);
+
+            // Traverse the inheritance heirarchy to register all class members in the inheritance/composition graph
+            if (type.IsClass)
             {
-                RegisterDerivedTypes(type);
+                if (direction.HasFlag(SearchDirection.Derived)) RegisterDerivedTypes(type);
+                if (direction.HasFlag(SearchDirection.Based)) RegisterBaseTypes(type);
+            }
 
-                if (type.IsGenericType)
+            if (type.IsGenericType)
+            {
+                foreach (Type genericType in type.GetGenericArguments())
                 {
-                    foreach(Type genericType in type.GetGenericArguments())
-                    {
-                        RegisterDerivedTypes(genericType);
-                    }
+                    RegisterModel(genericType, SearchDirection.Both);
                 }
+            }
+
+            foreach (Type? memberType in type.GetProperties(BindingFlags.Public | BindingFlags.Instance).Select(m => m.PropertyType))
+            {
+                if (memberType is null || memberType.IsPrimitive) continue;
+                
+                RegisterModel(memberType, SearchDirection.Both);
+            }
+        }
+
+        private static void RegisterBaseTypes(Type type)
+        {
+           Type? baseType = type.BaseType;
+
+            if (baseType != null && !BsonClassMap.IsClassMapRegistered(baseType))
+            {
+                BsonClassMap cm = new(baseType);
+                
+                cm.AutoMap();
+                cm.AddKnownType(type);
+                
+                BsonClassMap.RegisterClassMap(cm);
+
+                RegisterModel(baseType, baseType.IsAbstract ? SearchDirection.Stop : SearchDirection.Based);
             }
         }
 
@@ -33,25 +72,23 @@ namespace DataAccess
         {
             var derivedTypes = Assembly.GetAssembly(baseType)?
                                        .GetTypes()
-                                       .Where(t => !t.IsAbstract && baseType.IsAssignableFrom(t))
+                                       .Where(t => !t.IsAbstract && t.IsSubclassOf(baseType))
                                        .ToList() ?? [];
             
-            BsonClassMap cm = new(baseType);
-
-            cm.AutoMap();
-
-            // Register each derived type as a known type
-            foreach (var derivedType in derivedTypes)
+            if (!BsonClassMap.IsClassMapRegistered(baseType))
             {
-                cm.AddKnownType(derivedType);
+                BsonClassMap cm = new(baseType);
+
+                cm.AutoMap();
+
+                foreach (var derivedType in derivedTypes)
+                {
+                    cm.AddKnownType(derivedType);
+                    RegisterModel(derivedType, SearchDirection.Derived);
+                }
+
+                BsonClassMap.RegisterClassMap(cm);
             }
-
-            BsonClassMap.RegisterClassMap(cm);
         }
-
-        //private static bool IsKnown(Type source, Type target)
-        //{
-        //    return target.IsSubclassOf(source) || source.GetFields().Aggregate(true, (sofar, next) => sofar || IsKnown(next.FieldType, target));
-        //}
     }
 }

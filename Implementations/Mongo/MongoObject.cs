@@ -1,5 +1,4 @@
-﻿using Core;
-using MongoDB.Bson;
+﻿using MongoDB.Bson;
 
 namespace DataAccess
 {

@@ -1,5 +1,5 @@
 ﻿using MongoDB.Driver;
-using Core;
+using NetBlocks.Models;
 
 namespace DataAccess
 {

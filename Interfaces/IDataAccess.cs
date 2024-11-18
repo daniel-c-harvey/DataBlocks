@@ -1,4 +1,4 @@
-﻿using Core;
+﻿using NetBlocks.Models;
 
 namespace DataAccess
 {

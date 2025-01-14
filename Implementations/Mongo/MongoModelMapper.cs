@@ -58,8 +58,8 @@ namespace DataAccess
             if (baseType != null && !BsonClassMap.IsClassMapRegistered(baseType))
             {
                 BsonClassMap cm = new(baseType);
-                
-                cm.AutoMap();
+
+                MapModel(cm);
                 cm.AddKnownType(type);
                 
                 BsonClassMap.RegisterClassMap(cm);
@@ -70,24 +70,35 @@ namespace DataAccess
 
         private static void RegisterDerivedTypes(Type baseType)
         {
+            if (BsonClassMap.IsClassMapRegistered(baseType)) return;
+            
             var derivedTypes = Assembly.GetAssembly(baseType)?
                                        .GetTypes()
                                        .Where(t => !t.IsAbstract && t.IsSubclassOf(baseType))
                                        .ToList() ?? [];
-            
-            if (!BsonClassMap.IsClassMapRegistered(baseType))
+
+            BsonClassMap cm = new(baseType);
+
+            MapModel(cm);
+
+            foreach (var derivedType in derivedTypes)
             {
-                BsonClassMap cm = new(baseType);
+                cm.AddKnownType(derivedType);
+                RegisterModel(derivedType, SearchDirection.Derived);
+            }
 
-                cm.AutoMap();
+            BsonClassMap.RegisterClassMap(cm);
+        }
 
-                foreach (var derivedType in derivedTypes)
+        private static void MapModel(BsonClassMap cm)
+        {
+            cm.AutoMap();
+            foreach (var prop in cm.ClassType.GetProperties())
+            {
+                if (prop.GetCustomAttribute<MediaStorageAttribute>()?.ShouldStore ?? false)
                 {
-                    cm.AddKnownType(derivedType);
-                    RegisterModel(derivedType, SearchDirection.Derived);
+                    // TODO
                 }
-
-                BsonClassMap.RegisterClassMap(cm);
             }
         }
     }

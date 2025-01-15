@@ -67,11 +67,12 @@ namespace DataAccess
             {
                 var filter = Builders<MongoObject<TModel>>.Filter.Eq(m => m.Document.ID, value.ID);
 
-                database.GetCollection<MongoObject<TModel>>(collection)
+                var result = database.GetCollection<MongoObject<TModel>>(collection)
                     .ReplaceOne(filter, new MongoObject<TModel>() { Document = value });
 
-                return Result.CreatePassResult();
-
+                return result.IsAcknowledged
+                    ? Result.CreatePassResult()
+                    : Result.CreateFailResult($"Mongo QueryBuilder Database error occured.");
             });
         }
 
@@ -81,14 +82,17 @@ namespace DataAccess
             {
                 try
                 {
-                    database.GetCollection<MongoObject<TModel>>(collection)
+                    var result = database.GetCollection<MongoObject<TModel>>(collection)
                         .DeleteOne(model => model.Document.ID == value.ID);
+                    
+                    return result.IsAcknowledged
+                        ? Result.CreatePassResult()
+                        : Result.CreateFailResult($"Mongo QueryBuilder Database error occured.");
                 }
                 catch (Exception ex)
                 {
-                    Result.CreateFailResult($"Database error: {ex.Message}");
+                    return Result.CreateFailResult($"Database error: {ex.Message}");
                 }
-                return Result.CreatePassResult();
             });
         }        
     }

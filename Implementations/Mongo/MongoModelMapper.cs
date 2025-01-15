@@ -92,12 +92,13 @@ namespace DataAccess
 
         private static void MapModel(BsonClassMap cm)
         {
+            // Map everything, then remove non-storage properties
             cm.AutoMap();
             foreach (var prop in cm.ClassType.GetProperties())
             {
-                if (prop.GetCustomAttribute<MediaStorageAttribute>()?.ShouldStore ?? false)
+                if (prop.GetCustomAttribute<MediaStorageAttribute>() is {ShouldStore: false})
                 {
-                    // TODO
+                    cm.UnmapProperty(prop.Name);
                 }
             }
         }

@@ -40,7 +40,7 @@ public class ConnectionManager
     {
         var connection = new PostgresConnection(connectionInfo);
         await connection.ConnectAsync();
-        return ResultContainer<PostgresConnection>.CreateSuccessResult(connection);
+        return ResultContainer<PostgresConnection>.CreatePassResult(connection);
     }
 
 

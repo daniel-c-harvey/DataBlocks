@@ -11,4 +11,34 @@ public class ConnectionInfo
     {
         return $"Host={Host};Username={Username};Password={Password};Database={Database}";
     }
-} 
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is not ConnectionInfo other)
+            return false;
+
+        return Host == other.Host &&
+               Username == other.Username &&
+               Password == other.Password &&
+               Database == other.Database;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Host, Username, Password, Database);
+    }
+
+    public static bool operator ==(ConnectionInfo? left, ConnectionInfo? right)
+    {
+        if (ReferenceEquals(left, right))
+            return true;
+        if (left is null || right is null)
+            return false;
+        return left.Equals(right);
+    }
+
+    public static bool operator !=(ConnectionInfo? left, ConnectionInfo? right)
+    {
+        return !(left == right);
+    }
+}

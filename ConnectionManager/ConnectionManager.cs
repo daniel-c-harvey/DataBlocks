@@ -5,12 +5,7 @@ namespace DataBlocks.ConnectionManager;
 
 public class ConnectionManager
 {
-    private readonly string _configPath;
-
-    public ConnectionManager()
-    {
-        _configPath = Path.Combine(Directory.GetCurrentDirectory(), "connections.json");
-    }
+    private readonly string _configPath = Path.Combine(Directory.GetCurrentDirectory(), "connections.json");
 
     public async Task SaveConnectionAsync(ConnectionInfo connection)
     {
@@ -19,7 +14,13 @@ public class ConnectionManager
         await SaveConnectionsAsync(connections);
     }
 
-    public async Task<List<ConnectionInfo>> LoadConnectionsAsync()
+    public async Task RemoveConnectionAsync(IList<ConnectionInfo> connections, ConnectionInfo connection)
+    {
+        connections.Remove(connection);
+        await SaveConnectionsAsync(connections);
+    }
+
+    public async Task<IList<ConnectionInfo>> LoadConnectionsAsync()
     {
         if (!File.Exists(_configPath))
             return new List<ConnectionInfo>();
@@ -29,7 +30,7 @@ public class ConnectionManager
                ?? new List<ConnectionInfo>();
     }
 
-    private async Task SaveConnectionsAsync(List<ConnectionInfo> connections)
+    private async Task SaveConnectionsAsync(IList<ConnectionInfo> connections)
     {
         var options = new JsonSerializerOptions { WriteIndented = true };
         string json = JsonSerializer.Serialize(connections, options);
@@ -42,8 +43,4 @@ public class ConnectionManager
         await connection.ConnectAsync();
         return ResultContainer<PostgresConnection>.CreatePassResult(connection);
     }
-
-
-
-
 }

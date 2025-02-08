@@ -28,6 +28,15 @@ public class ConnectionInfo
         return HashCode.Combine(Host, Username, Password, Database);
     }
 
+    public void Reset()
+    {
+        Host = string.Empty;
+        Username = string.Empty;
+        Password = string.Empty;
+        Database = string.Empty;
+    }
+
+
     public static bool operator ==(ConnectionInfo? left, ConnectionInfo? right)
     {
         if (ReferenceEquals(left, right))

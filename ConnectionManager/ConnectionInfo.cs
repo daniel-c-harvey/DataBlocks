@@ -16,6 +16,11 @@ public class ConnectionInfo
     {
         return $"Host={Host};Username={Username};Password={Password};Database={Database}";
     }
+    
+    public string ToDisplayString()
+    {
+        return $"{Host} - {Username} - {Database}";
+    }
 
 
     public override bool Equals(object? obj)
@@ -56,4 +61,6 @@ public class ConnectionInfo
     {
         return !(left == right);
     }
+
+    
 }

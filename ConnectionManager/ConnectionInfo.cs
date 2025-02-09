@@ -7,10 +7,16 @@ public class ConnectionInfo
     public string Password { get; set; } = string.Empty;
     public string Database { get; set; } = string.Empty;
 
+    public bool IsValid => !string.IsNullOrEmpty(Host) &&
+                           !string.IsNullOrEmpty(Username) &&
+                           !string.IsNullOrEmpty(Password) &&
+                           !string.IsNullOrEmpty(Database);
+
     public string ToConnectionString()
     {
         return $"Host={Host};Username={Username};Password={Password};Database={Database}";
     }
+
 
     public override bool Equals(object? obj)
     {

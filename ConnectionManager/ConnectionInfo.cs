@@ -2,7 +2,7 @@ namespace DataBlocks.ConnectionManager;
 
 public class ConnectionInfo
 {
-    public int Id { get; set; }
+    public int Id { get; }
     public string Host { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
@@ -12,6 +12,11 @@ public class ConnectionInfo
                            !string.IsNullOrEmpty(Username) &&
                            !string.IsNullOrEmpty(Password) &&
                            !string.IsNullOrEmpty(Database);
+
+    public ConnectionInfo(int id)
+    {
+        Id = id;
+    }
 
     public string ToConnectionString()
     {

@@ -7,9 +7,8 @@ public class ConnectionManager
 {
     private readonly string _configPath = Path.Combine(Directory.GetCurrentDirectory(), "connections.json");
 
-    public async Task SaveConnectionAsync(ConnectionInfo connection)
+    public async Task SaveConnectionAsync(IList<ConnectionInfo> connections, ConnectionInfo connection)
     {
-        var connections = await LoadConnectionsAsync();
         connections.Add(connection);
         await SaveConnectionsAsync(connections);
     }

@@ -43,4 +43,11 @@ public class ConnectionManager
         await connection.ConnectAsync();
         return ResultContainer<PostgresConnection>.CreatePassResult(connection);
     }
+
+    public async Task UpdateConnectionAsync(IList<ConnectionInfo> connections, ConnectionInfo connectionInfo)
+    {
+        connections.Remove(connections.First(c => c.Id == connectionInfo.Id));
+        connections.Add(connectionInfo);
+        await SaveConnectionsAsync(connections);
+    }
 }

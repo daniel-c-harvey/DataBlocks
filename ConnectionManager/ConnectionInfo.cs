@@ -2,6 +2,7 @@ namespace DataBlocks.ConnectionManager;
 
 public class ConnectionInfo
 {
+    public int Id { get; set; }
     public string Host { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
@@ -28,7 +29,8 @@ public class ConnectionInfo
         if (obj is not ConnectionInfo other)
             return false;
 
-        return Host == other.Host &&
+        return Id == other.Id && 
+               Host == other.Host &&
                Username == other.Username &&
                Password == other.Password &&
                Database == other.Database;
@@ -36,7 +38,7 @@ public class ConnectionInfo
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(Host, Username, Password, Database);
+        return HashCode.Combine(Id, Host, Username, Password, Database);
     }
 
     public void Reset()

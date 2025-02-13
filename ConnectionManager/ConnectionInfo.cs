@@ -1,6 +1,9 @@
+using NetBlocks.Interfaces;
+using System.Text.Json.Serialization;
+
 namespace DataBlocks.ConnectionManager;
 
-public class ConnectionInfo
+public class ConnectionInfo : ICloneable<ConnectionInfo>
 {
     public int Id { get; }
     public string Host { get; set; } = string.Empty;
@@ -8,6 +11,7 @@ public class ConnectionInfo
     public string Password { get; set; } = string.Empty;
     public string Database { get; set; } = string.Empty;
 
+    [JsonIgnore]
     public bool IsValid => !string.IsNullOrEmpty(Host) &&
                            !string.IsNullOrEmpty(Username) &&
                            !string.IsNullOrEmpty(Password) &&
@@ -54,6 +58,16 @@ public class ConnectionInfo
         Database = string.Empty;
     }
 
+    public ConnectionInfo Clone()
+    {
+        return new ConnectionInfo(this.Id)
+        {
+            Host = this.Host,
+            Username = this.Username,
+            Password = this.Password,
+            Database = this.Database,
+        };
+    }
 
     public static bool operator ==(ConnectionInfo? left, ConnectionInfo? right)
     {

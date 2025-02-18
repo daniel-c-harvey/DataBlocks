@@ -7,6 +7,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetBlocks", "C:\lib\NetBloc
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataBlocks", "DataBlocks\DataBlocks.csproj", "{D410B0C2-D2A0-45F7-9FF9-6A0CC1F61028}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScheMigrator", "ScheMigrator\ScheMigrator.csproj", "{A52ED9DD-F407-418F-ACB6-7FE642917D2A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScheMigratorTests", "ScheMigratorTests\ScheMigratorTests.csproj", "{6A7388AC-8752-48F5-9321-04B0E6B4CE9C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{D410B0C2-D2A0-45F7-9FF9-6A0CC1F61028}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D410B0C2-D2A0-45F7-9FF9-6A0CC1F61028}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D410B0C2-D2A0-45F7-9FF9-6A0CC1F61028}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A52ED9DD-F407-418F-ACB6-7FE642917D2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A52ED9DD-F407-418F-ACB6-7FE642917D2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A52ED9DD-F407-418F-ACB6-7FE642917D2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A52ED9DD-F407-418F-ACB6-7FE642917D2A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6A7388AC-8752-48F5-9321-04B0E6B4CE9C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6A7388AC-8752-48F5-9321-04B0E6B4CE9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6A7388AC-8752-48F5-9321-04B0E6B4CE9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6A7388AC-8752-48F5-9321-04B0E6B4CE9C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

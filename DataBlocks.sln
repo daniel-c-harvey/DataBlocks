@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.11.35327.3
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DataBlocks", "DataBlocks.csproj", "{19889108-CC8B-448C-B1C0-F88BE0750C36}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetBlocks", "C:\lib\NetBlocks\NetBlocks.csproj", "{3762F401-B58A-4A01-937F-8A600D9DA11A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataBlocks", "DataBlocks\DataBlocks.csproj", "{D410B0C2-D2A0-45F7-9FF9-6A0CC1F61028}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,14 +13,14 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{19889108-CC8B-448C-B1C0-F88BE0750C36}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{19889108-CC8B-448C-B1C0-F88BE0750C36}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{19889108-CC8B-448C-B1C0-F88BE0750C36}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{19889108-CC8B-448C-B1C0-F88BE0750C36}.Release|Any CPU.Build.0 = Release|Any CPU
 		{3762F401-B58A-4A01-937F-8A600D9DA11A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{3762F401-B58A-4A01-937F-8A600D9DA11A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3762F401-B58A-4A01-937F-8A600D9DA11A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3762F401-B58A-4A01-937F-8A600D9DA11A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D410B0C2-D2A0-45F7-9FF9-6A0CC1F61028}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D410B0C2-D2A0-45F7-9FF9-6A0CC1F61028}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D410B0C2-D2A0-45F7-9FF9-6A0CC1F61028}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D410B0C2-D2A0-45F7-9FF9-6A0CC1F61028}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

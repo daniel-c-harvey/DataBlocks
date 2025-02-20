@@ -1,86 +1,74 @@
 using System;
+using System.Reflection;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
+using DataBlocks.Migrations;
+using ScheMigrator.DDL;
 
 namespace ScheMigrator;
 
 public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
 {
     [Required]
-    public ITaskItem[] CompileFiles { get; set; }
+    public string AssemblyPath { get; set; }
 
     [Required]
-    public string AttributeName { get; set; }
+    public string OutputPath { get; set; }
 
     [Output]
-    public ITaskItem[] ProcessedFiles { get; set; }
+    public ITaskItem[] ProcessedTypes { get; set; }
 
     public override bool Execute()
     {
-        var processedFiles = new List<ITaskItem>();
-
-        foreach (var file in CompileFiles)
+        try
         {
-            Log.LogMessage(MessageImportance.Normal, $"Processing file: {file.ItemSpec}");
-            
-            var sourceText = File.ReadAllText(file.ItemSpec);
-            var tree = CSharpSyntaxTree.ParseText(sourceText);
-            var root = tree.GetRoot();
+            var assembly = Assembly.LoadFrom(AssemblyPath);
+            var processedTypes = new List<ITaskItem>();
 
-            // Find all class declarations
-            var classDeclarations = root.DescendantNodes()
-                .OfType<ClassDeclarationSyntax>();
-
-            foreach (var classDeclaration in classDeclarations)
+            foreach (var type in assembly.GetTypes())
             {
-                // Check if the class has our target attribute
-                if (HasTargetAttribute(classDeclaration, AttributeName))
-                {
-                    ProcessClass(classDeclaration);
-                    
-                    var taskItem = new TaskItem(file.ItemSpec);
-                    taskItem.SetMetadata("ProcessedClass", classDeclaration.Identifier.Text);
-                    taskItem.SetMetadata("Namespace", GetNamespace(classDeclaration));
-                    processedFiles.Add(taskItem);
+                Log.LogMessage(MessageImportance.Normal, $"Processing type: {type.FullName}");
+                var sqlAttr = type.GetCustomAttribute<ScheModelAttribute>();
+                if (sqlAttr != null)
+                {  
+                    Log.LogMessage(MessageImportance.Normal, $"Processing model: {type.FullName}");
+                    try
+                    {
+                        // Get SQL generator for this type
+                        var generator = SqlGeneratorFactory.Build(sqlAttr.SqlImplementation);
+                        
+                        // Generate DDL
+                        string ddl = DDLGenerator.GenerateDDL(type, generator);
+                        
+                        // Save DDL to file
+                        var fileName = $"{type.Name}.sql";
+                        var filePath = Path.Combine(OutputPath, fileName);
+                        Directory.CreateDirectory(OutputPath);
+                        File.WriteAllText(filePath, ddl);
+
+                        // Create task item for output
+                        var taskItem = new TaskItem(type.FullName);
+                        taskItem.SetMetadata("DDLPath", filePath);
+                        taskItem.SetMetadata("SqlImplementation", sqlAttr.SqlImplementation.ToString());
+                        processedTypes.Add(taskItem);
+                        
+                        Log.LogMessage(MessageImportance.Normal, $"Generated DDL for {type.Name} at {filePath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.LogError($"Error processing type {type.Name}: {ex.Message}");
+                        return false;
+                    }
                 }
             }
+
+            ProcessedTypes = processedTypes.ToArray();
+            return !Log.HasLoggedErrors;
         }
-
-        ProcessedFiles = processedFiles.ToArray();
-        return !Log.HasLoggedErrors;
-    }
-
-    private bool HasTargetAttribute(ClassDeclarationSyntax classDeclaration, string attributeName)
-    {
-        return classDeclaration.AttributeLists
-            .SelectMany(al => al.Attributes)
-            .Any(attr => attr.Name.ToString() == attributeName ||
-                        attr.Name.ToString() == attributeName + "Attribute");
-    }
-
-    private string GetNamespace(ClassDeclarationSyntax classDeclaration)
-    {
-        // Walk up the syntax tree to find the namespace
-        var namespaceDeclaration = classDeclaration.Parent as NamespaceDeclarationSyntax;
-        return namespaceDeclaration?.Name.ToString() ?? string.Empty;
-    }
-
-    private void ProcessClass(ClassDeclarationSyntax classDeclaration)
-    {
-        // Add your custom processing logic here
-        // You have access to the full syntax tree for analysis
-        
-        // Example: Process methods with specific attributes
-        var methods = classDeclaration.DescendantNodes()
-            .OfType<MethodDeclarationSyntax>();
-            
-        foreach (var method in methods)
+        catch (Exception ex)
         {
-            Log.LogMessage(MessageImportance.Normal, 
-                $"Found method {method.Identifier.Text} in class {classDeclaration.Identifier.Text}");
-            // Add your method processing logic here
+            Log.LogError($"Error executing DDLGeneratorTask: {ex.Message}");
+            return false;
         }
     }
 }

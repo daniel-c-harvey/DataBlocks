@@ -22,6 +22,16 @@
 
     <ItemGroup>
       <ProjectReference Include="..\DataBlocks\DataBlocks.csproj" />
+      <ProjectReference Include="..\ScheMigrator\ScheMigrator.csproj" />
     </ItemGroup>
+
+    <UsingTask TaskName="ScheMigrator.DDLGeneratorTask" 
+               AssemblyFile="$(MSBuildThisFileDirectory)..\ScheMigrator\$(OutputPath)ScheMigrator.dll" />
+
+    <Target Name="GenerateDDL" AfterTargets="Build">
+        <DDLGeneratorTask
+            AssemblyPath="$(TargetPath)"
+            OutputPath="$(ProjectDir)SQL" />
+    </Target>
 
 </Project>

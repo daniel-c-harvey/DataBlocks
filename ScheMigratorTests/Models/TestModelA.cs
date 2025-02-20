@@ -2,8 +2,9 @@
 
 namespace ScheMigratorTests.Models;
 
-[ScheModel]
+[ScheModel(SqlImplementation.PostgreSQL)]
 public class TestModelA
 {
-    
+    [SqlColumn]
+    public int Id { get; set; }
 }

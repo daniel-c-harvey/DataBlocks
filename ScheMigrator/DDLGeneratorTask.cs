@@ -1,9 +1,12 @@
 using System;
 using Microsoft.Build.Framework;
+using Microsoft.Build.Utilities;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace ScheMigrator;
 
-public class DDLGenerator : Microsoft.Build.Utilities.Task
+public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
 {
     [Required]
     public ITaskItem[] CompileFiles { get; set; }

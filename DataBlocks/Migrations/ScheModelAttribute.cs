@@ -2,5 +2,5 @@
 
 public class ScheModelAttribute : Attribute
 {
-    
+    public SqlImplementation SqlImplementation { get; }
 }

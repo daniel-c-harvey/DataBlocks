@@ -2,7 +2,7 @@
 
 namespace ScheMigratorTests.Models;
 
-[ScheModel(SqlImplementation.PostgreSQL)]
+[ScheModel]
 public class TestModelA
 {
     [SqlColumn]

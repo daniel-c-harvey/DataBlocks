@@ -31,7 +31,8 @@
     <Target Name="GenerateDDL" AfterTargets="Build">
         <DDLGeneratorTask
             AssemblyPath="$(TargetPath)"
-            OutputPath="$(ProjectDir)SQL" />
+            OutputPath="$(ProjectDir)SQL"
+            Implementation="PostgreSQL"/>
     </Target>
 
 </Project>

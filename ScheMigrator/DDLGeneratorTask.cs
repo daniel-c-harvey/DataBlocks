@@ -16,6 +16,7 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
     public string OutputPath { get; set; }
     [Required]
     public string Implementation { get; set; }
+    public string Schema { get; set; } = "public";
 
     [Output]
     public ITaskItem[] ProcessedTypes { get; set; }
@@ -24,42 +25,41 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
     {
         try
         {
+            SchePackage package = new SchePackage();
+            
             try
             {
                 Log.LogMessage(MessageImportance.Normal, Path.GetFullPath(AssemblyPath));
                 Type[] types;
+                Assembly assembly;
                 try
                 {
                     // Load the target assembly using LoadFile instead of LoadFrom
-                    var assembly = Assembly.LoadFrom(Path.GetFullPath(AssemblyPath));
+                    assembly = Assembly.LoadFrom(Path.GetFullPath(AssemblyPath));
                     types = assembly.GetTypes()
                         .Where(t => t.GetCustomAttributes()
                             .Any(a => a.GetType().Name == nameof(ScheModelAttribute))).ToArray();
-                // Log.LogMessage(MessageImportance.Normal, assembly.GetTypes().Select(t => t.GetCustomAttributes().Select(a => a.GetType().Name)
-                //         .Aggregate("", (soFar, nextItem) => $"{soFar}, {nextItem}")).Aggregate("", (soFar, nextItem) => $"{soFar}, {nextItem}"));
-                // Log.LogMessage(MessageImportance.Normal, types.Length.ToString());
                 }
-                catch (ReflectionTypeLoadException e)
-                {
-                    Log.LogWarningFromException(e, true);
-                    types = e.Types.Where(t => t != null)
-                        .Select<Type?, Type>(t => t)
-                        .Where(t => t.GetCustomAttributes()
-                            .Any(a => a.GetType().Name == nameof(ScheModelAttribute))).ToArray();
-                }
+                // catch (ReflectionTypeLoadException e)
+                // {
+                //     Log.LogWarningFromException(e, true);
+                //     types = e.Types.Where(t => t != null)
+                //         .Select<Type?, Type>(t => t)
+                //         .Where(t => t.GetCustomAttributes()
+                //             .Any(a => a.GetType().Name == nameof(ScheModelAttribute))).ToArray();
+                // }
                 catch (Exception e)
                 {
                     Log.LogErrorFromException(e, true);
                     return true;
                 }
                 
-                // // Load DataBlocks assembly from the same directory
-                // var dataBlocksPath = Path.Combine(Path.GetDirectoryName(AssemblyPath)!, "DataBlocks.dll");
-                // // Assembly dataBlocks = Assembly.LoadFrom(Path.GetFullPath(dataBlocksPath));
-                // var dataBlocks = Assembly.Load(dataBlocksPath);
-                // Type scheModelType = dataBlocks.GetType(nameof(ScheModelAttribute));
-                
                 var processedTypes = new List<ITaskItem>();
+                if (!SqlImplementation.TryParse(Implementation, out SqlImplementation sqlImplementation))
+                {
+                    Log.LogError($"SqlImplementation could not be parsed: {Implementation}");
+                    return false;
+                }
 
                 foreach (var type in types)
                 {
@@ -71,34 +71,19 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
                         Log.LogMessage(MessageImportance.Normal, $"Processing model: {type.FullName}");
                         try
                         {
-                            // // Get SQL implementation using reflection instead of direct cast
-                            // Log.LogMessage(MessageImportance.Low, scheModelType.GetProperty(nameof(ScheModelAttribute.SqlImplementation))?.GetValue(sqlAttr)?.ToString());
-                            if (!SqlImplementation.TryParse(Implementation, out SqlImplementation sqlImplementation))
-                            {
-                                Log.LogError($"Could not get SqlImplementation from attribute for type {type.Name}");
-                                return false;
-                            }
-                            
-                            
-                            // Get SQL generator for this type
-                            var generator = SqlGeneratorFactory.Build(sqlImplementation);
-                            
                             // Generate DDL
-                            string ddl = DDLGenerator.GenerateDDL(type, generator);
-                            
-                            // Save DDL to file
-                            var fileName = $"{type.Name}.sql";
-                            var filePath = Path.Combine(OutputPath, fileName);
-                            Directory.CreateDirectory(OutputPath);
-                            File.WriteAllText(filePath, ddl);
+                            string ddl = ScheModelGenerator.GenerateModelDDL(type, sqlImplementation, Schema);
+
+                            // Add DDL to Package
+                            package.AddScript(ddl);
 
                             // Create task item for output
                             var taskItem = new TaskItem(type.FullName);
-                            taskItem.SetMetadata("DDLPath", filePath);
-                            taskItem.SetMetadata("SqlImplementation", Implementation.ToString());
+                            taskItem.SetMetadata("ProcessedModel", type.FullName);
+                            taskItem.SetMetadata("SqlImplementation", Implementation);
                             processedTypes.Add(taskItem);
                             
-                            Log.LogMessage(MessageImportance.Normal, $"Generated DDL for {type.Name} at {filePath}");
+                            Log.LogMessage(MessageImportance.Normal, $"Generated DDL for {type.Name}");
                         }
                         catch (Exception ex)
                         {
@@ -108,10 +93,16 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
                     }
                 }
                 
+                // Save DDL to file
+                var fileName = $"{assembly.GetName().Name?.ToLower() ?? throw new Exception("Assembly Name could not be used to generate DDL Package.")}.schpkg";
+                var filePath = Path.Combine(OutputPath, fileName);
+                Directory.CreateDirectory(OutputPath);
+                File.WriteAllBytes(filePath, package.Package());
+                
                 ProcessedTypes = processedTypes.ToArray();
                 return !Log.HasLoggedErrors;
             }
-            catch (Exception e)
+            catch (Exception e) 
             {
                 Log.LogWarningFromException(e, true);
                 return true;
@@ -119,7 +110,7 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
         }
         catch (Exception ex)
         {
-            Log.LogError($"Error executing DDLGeneratorTask: {ex.Message}");
+            Log.LogError($"Error executing DDL Generation: {ex.Message}");
             return false;
         }
     }

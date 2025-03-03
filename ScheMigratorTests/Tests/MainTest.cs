@@ -1,4 +1,5 @@
-﻿using ScheMigrator.DDL;
+﻿using DataBlocks.Migrations;
+using ScheMigrator.DDL;
 using ScheMigratorTests.Models;
 
 namespace ScheMigratorTests.Tests;
@@ -15,7 +16,7 @@ public class MainTest
     [Test]
     public void Should()
     {
-        DDLGenerator.GenerateDDL(typeof(TestModelA), new PostgreSqlGenerator());
+        var ddl = ScheModelGenerator.GenerateModelDDL<TestModelA>(SqlImplementation.PostgreSQL, "public");
         Assert.Pass();
     }
     

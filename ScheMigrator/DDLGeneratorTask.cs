@@ -3,7 +3,7 @@ using System.Reflection;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using DataBlocks.Migrations;
-using ScheMigrator.DDL;
+using ScheMigrator.Migrations;
 
 namespace ScheMigrator;
 

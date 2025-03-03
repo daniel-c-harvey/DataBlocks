@@ -1,7 +1,6 @@
-﻿
-using DataBlocks.Migrations;
+﻿using DataBlocks.Migrations;
 
-namespace ScheMigrator.DDL
+namespace ScheMigrator.Migrations
 {
     internal static class SqlGeneratorFactory
     {

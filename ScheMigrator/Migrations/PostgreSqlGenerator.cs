@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using DataBlocks.Migrations;
 
-namespace ScheMigrator.DDL;
+namespace ScheMigrator.Migrations;
 
 public class PostgreSqlGenerator : ISqlGenerator
 {

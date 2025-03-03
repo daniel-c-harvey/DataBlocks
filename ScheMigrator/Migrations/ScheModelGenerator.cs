@@ -1,9 +1,8 @@
 ﻿using System.Reflection;
-using System.Text;
 using DataBlocks.Migrations;
 using NetBlocks.Utilities;
 
-namespace ScheMigrator.DDL;
+namespace ScheMigrator.Migrations;
 
 public static class ScheModelGenerator
 {

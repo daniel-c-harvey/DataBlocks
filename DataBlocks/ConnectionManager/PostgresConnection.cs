@@ -2,7 +2,7 @@ using Npgsql;
 
 namespace DataBlocks.ConnectionManager;
 
-public class PostgresConnection : IDisposable
+public class PostgresConnection : ISqlConnection
 {
     private readonly string _connectionString;
     private NpgsqlConnection? _connection;

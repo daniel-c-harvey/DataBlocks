@@ -25,7 +25,7 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
     {
         try
         {
-            SchePackage package = new SchePackage();
+            ScheModelPackage modelPackage = new ScheModelPackage();
             
             try
             {
@@ -75,7 +75,7 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
                             string ddl = ScheModelGenerator.GenerateModelDDL(type, sqlImplementation, Schema);
 
                             // Add DDL to Package
-                            package.AddScript(ddl);
+                            modelPackage.AddScript(ddl);
 
                             // Create task item for output
                             var taskItem = new TaskItem(type.FullName);
@@ -97,7 +97,7 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
                 var fileName = $"{assembly.GetName().Name?.ToLower() ?? throw new Exception("Assembly Name could not be used to generate DDL Package.")}.schpkg";
                 var filePath = Path.Combine(OutputPath, fileName);
                 Directory.CreateDirectory(OutputPath);
-                File.WriteAllBytes(filePath, package.Package());
+                File.WriteAllBytes(filePath, modelPackage.Package());
                 
                 ProcessedTypes = processedTypes.ToArray();
                 return !Log.HasLoggedErrors;

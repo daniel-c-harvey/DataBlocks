@@ -1,3 +1,4 @@
+using DataBlocks.Migrations;
 using NetBlocks.Interfaces;
 using System.Text.Json.Serialization;
 
@@ -10,12 +11,14 @@ public class ConnectionInfo : ICloneable<ConnectionInfo>
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public string Database { get; set; } = string.Empty;
+    public SqlImplementation Implementation { get; set; } = SqlImplementation.PostgreSQL;
 
     [JsonIgnore]
     public bool IsValid => !string.IsNullOrEmpty(Host) &&
                            !string.IsNullOrEmpty(Username) &&
                            !string.IsNullOrEmpty(Password) &&
-                           !string.IsNullOrEmpty(Database);
+                           !string.IsNullOrEmpty(Database) &&
+                           Enum.IsDefined(typeof(SqlImplementation), Implementation);
 
     public ConnectionInfo(int id)
     {
@@ -42,12 +45,13 @@ public class ConnectionInfo : ICloneable<ConnectionInfo>
                Host == other.Host &&
                Username == other.Username &&
                Password == other.Password &&
-               Database == other.Database;
+               Database == other.Database &&
+               Implementation == other.Implementation;
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(Id, Host, Username, Password, Database);
+        return HashCode.Combine(Id, Host, Username, Password, Database, Implementation);
     }
 
     public void Reset()
@@ -56,6 +60,7 @@ public class ConnectionInfo : ICloneable<ConnectionInfo>
         Username = string.Empty;
         Password = string.Empty;
         Database = string.Empty;
+        Implementation = SqlImplementation.PostgreSQL;
     }
 
     public ConnectionInfo Clone()
@@ -66,6 +71,7 @@ public class ConnectionInfo : ICloneable<ConnectionInfo>
             Username = this.Username,
             Password = this.Password,
             Database = this.Database,
+            Implementation = this.Implementation
         };
     }
 

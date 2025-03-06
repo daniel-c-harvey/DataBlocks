@@ -36,11 +36,11 @@ public class ConnectionManager
         await File.WriteAllTextAsync(_configPath, json);
     }
 
-    public async Task<ResultContainer<PostgresConnection>> ConnectAsync(ConnectionInfo connectionInfo)
+    public async Task<ResultContainer<ISqlConnection>> ConnectAsync(ConnectionInfo connectionInfo)
     {
-        var connection = new PostgresConnection(connectionInfo);
+        var connection = ConnectionFactory.MakeConnection(connectionInfo);
         await connection.ConnectAsync();
-        return ResultContainer<PostgresConnection>.CreatePassResult(connection);
+        return ResultContainer<ISqlConnection>.CreatePassResult(connection);
     }
 
     public async Task UpdateConnectionAsync(IList<ConnectionInfo> connections, ConnectionInfo connectionInfo)

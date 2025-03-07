@@ -1,13 +1,14 @@
 ﻿using System.IO.Compression;
 using System.Text.Json;
 using System.Text;
+using SharpCompress.Common;
 
 namespace DataBlocks.Migrations;
 
 public class ScheModelPackage
 {
     private static readonly string PACKAGE_NAME = "SchePackage";
-    private IList<string> Scripts { get; init; } = new List<string>();
+    public IList<string> Scripts { get; private init; } = new List<string>();
     
     public ScheModelPackage AddScript(string script)
     {
@@ -37,21 +38,23 @@ public class ScheModelPackage
     {
         byte[] decompressedBytes;
         ScheModelPackage package;
-        
+
+        using var outStream = new MemoryStream();
         using (var inStream = new MemoryStream(contents))
         {
             var fileOutArchive = new ZipArchive(inStream, ZipArchiveMode.Read);
-            using (var outputStream = fileOutArchive.GetEntry(PACKAGE_NAME)?.Open())
+            using (var entryStream = fileOutArchive.GetEntry(PACKAGE_NAME)?.Open())
             {
-                if (outputStream == null)
+                if (entryStream == null)
                 {
                     throw new Exception($"Package contents malformed: expected inner zip file {PACKAGE_NAME}");
                 }
-                
-                outputStream.CopyTo(inStream);
+
+                entryStream.CopyTo(outStream);
             }
-            decompressedBytes = inStream.ToArray();
         }
+
+        decompressedBytes = outStream.ToArray();
 
         IList<string>? packageContents = JsonSerializer.Deserialize<IList<string>>(Encoding.UTF8.GetString(decompressedBytes));
         if (packageContents == null)

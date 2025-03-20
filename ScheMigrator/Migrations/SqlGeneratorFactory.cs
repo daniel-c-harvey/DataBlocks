@@ -54,6 +54,8 @@ namespace ScheMigrator.Migrations
             {
                 case SqlImplementation.PostgreSQL:
                     return new PostgreSqlGenerator(schema, tableName);
+                case SqlImplementation.SQLite:
+                    return new SqliteGenerator(schema, tableName);
                 default:
                     throw new NotImplementedException();
             }

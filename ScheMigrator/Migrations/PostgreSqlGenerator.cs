@@ -101,14 +101,14 @@ public class PostgreSqlGenerator : ISqlGenerator
                 """;
     }
 
-    public string GenerateDropUnusedColumns(IEnumerable<string> validColumns)
+    public string GenerateDropUnusedColumns(IEnumerable<ColumnInfo> validColumns)
     {
         var sb = new StringBuilder();
         
         sb.AppendLine($"""
                        FOR _col IN (
                            SELECT column_name FROM {_tempTableName}
-                           WHERE column_name NOT IN ({string.Join(", ", validColumns.Select(c => $"'{c}'"))})
+                           WHERE column_name NOT IN ({string.Join(", ", validColumns.Select(c => $"'{c.Name}'"))})
                        )
                        LOOP
                            EXECUTE format('ALTER TABLE %I.%I DROP COLUMN %I', '{_schema}', '{_tableName}', _col.column_name);
@@ -136,5 +136,12 @@ public class PostgreSqlGenerator : ISqlGenerator
     public string GenerateCloseBlock()
     {
         return "END $$;";
+    }
+
+    public string GenerateTableRecreation(IEnumerable<ColumnInfo> columns)
+    {
+        // PostgreSQL supports ALTER TABLE operations directly, so we don't need
+        // to recreate the table. This method is primarily for SQLite.
+        return "-- PostgreSQL supports ALTER TABLE operations directly, no need for table recreation";
     }
 }

@@ -25,8 +25,6 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
     {
         try
         {
-            ScheModelPackage modelPackage = new ScheModelPackage();
-            
             try
             {
                 Log.LogMessage(MessageImportance.Normal, Path.GetFullPath(AssemblyPath));
@@ -40,14 +38,6 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
                         .Where(t => t.GetCustomAttributes()
                             .Any(a => a.GetType().Name == nameof(ScheModelAttribute))).ToArray();
                 }
-                // catch (ReflectionTypeLoadException e)
-                // {
-                //     Log.LogWarningFromException(e, true);
-                //     types = e.Types.Where(t => t != null)
-                //         .Select<Type?, Type>(t => t)
-                //         .Where(t => t.GetCustomAttributes()
-                //             .Any(a => a.GetType().Name == nameof(ScheModelAttribute))).ToArray();
-                // }
                 catch (Exception e)
                 {
                     Log.LogErrorFromException(e, true);
@@ -55,49 +45,51 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
                 }
                 
                 var processedTypes = new List<ITaskItem>();
-                if (!SqlImplementation.TryParse(Implementation, out SqlImplementation sqlImplementation))
+                if (!Enum.TryParse(Implementation, out SqlImplementation sqlImplementation))
                 {
-                    Log.LogError($"SqlImplementation could not be parsed: {Implementation}");
+                    Log.LogError($"SQL Implementation could not be parsed: {Implementation}");
                     return false;
                 }
 
+                ScheModelPackage modelPackage = new ScheModelPackage(sqlImplementation);
+                
                 foreach (var type in types)
                 {
                     Log.LogMessage(MessageImportance.Normal, $"Processing type: {type.FullName}");
                     var sqlAttr = type.GetCustomAttributes()
                         .FirstOrDefault(a => a.GetType().Name == nameof(ScheModelAttribute));
-                    if (sqlAttr != null)
-                    {  
-                        Log.LogMessage(MessageImportance.Normal, $"Processing model: {type.FullName}");
-                        try
-                        {
-                            // Generate DDL
-                            string ddl = ScheModelGenerator.GenerateModelDDL(type, sqlImplementation, Schema);
+                    
+                    if (sqlAttr == null) continue;
+                    
+                    Log.LogMessage(MessageImportance.Normal, $"Processing model: {type.FullName}");
+                    try
+                    {
+                        // Generate DDL
+                        string ddl = ScheModelGenerator.GenerateModelDDL(type, sqlImplementation, Schema);
 
-                            // Add DDL to Package
-                            modelPackage.AddScript(ddl);
+                        // Add DDL to Package
+                        modelPackage.AddScript(ddl);
 
-                            // Create task item for output
-                            var taskItem = new TaskItem(type.FullName);
-                            taskItem.SetMetadata("ProcessedModel", type.FullName);
-                            taskItem.SetMetadata("SqlImplementation", Implementation);
-                            processedTypes.Add(taskItem);
+                        // Create task item for output
+                        var taskItem = new TaskItem(type.FullName);
+                        taskItem.SetMetadata("ProcessedModel", type.FullName);
+                        taskItem.SetMetadata("SqlImplementation", Implementation);
+                        processedTypes.Add(taskItem);
                             
-                            Log.LogMessage(MessageImportance.Normal, $"Generated DDL for {type.Name}");
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.LogError($"Error processing type {type.Name}: {ex.Message}");
-                            return false;
-                        }
+                        Log.LogMessage(MessageImportance.Normal, $"Generated DDL for {type.Name}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.LogError($"Error processing type {type.Name}: {ex.Message}\n{ex.StackTrace}");
+                        return false;
                     }
                 }
                 
                 // Save DDL to file
-                var fileName = $"{assembly.GetName().Name?.ToLower() ?? throw new Exception("Assembly Name could not be used to generate DDL Package.")}.schpkg";
+                var fileName = $"{Implementation.ToLower()}-{assembly.GetName().Name?.ToLower() ?? throw new Exception("Assembly Name could not be used to generate DDL Package.")}.schpkg";
                 var filePath = Path.Combine(OutputPath, fileName);
                 Directory.CreateDirectory(OutputPath);
-                File.WriteAllBytes(filePath, modelPackage.Package());
+                File.WriteAllBytes(filePath, modelPackage.MakePackage());
                 
                 ProcessedTypes = processedTypes.ToArray();
                 return !Log.HasLoggedErrors;

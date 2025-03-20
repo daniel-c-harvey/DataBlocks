@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataBlocks", "DataBlocks\Da
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScheMigrator", "ScheMigrator\ScheMigrator.csproj", "{A52ED9DD-F407-418F-ACB6-7FE642917D2A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScheMigratorTests", "ScheMigratorTests\ScheMigratorTests.csproj", "{6A7388AC-8752-48F5-9321-04B0E6B4CE9C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataBlocksTests", "DataBlocksTests\DataBlocksTests.csproj", "{C0696AC1-6AFD-4328-9C7B-7E4AB08370AF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -29,10 +29,10 @@ Global
 		{A52ED9DD-F407-418F-ACB6-7FE642917D2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A52ED9DD-F407-418F-ACB6-7FE642917D2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A52ED9DD-F407-418F-ACB6-7FE642917D2A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6A7388AC-8752-48F5-9321-04B0E6B4CE9C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6A7388AC-8752-48F5-9321-04B0E6B4CE9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6A7388AC-8752-48F5-9321-04B0E6B4CE9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6A7388AC-8752-48F5-9321-04B0E6B4CE9C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C0696AC1-6AFD-4328-9C7B-7E4AB08370AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0696AC1-6AFD-4328-9C7B-7E4AB08370AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0696AC1-6AFD-4328-9C7B-7E4AB08370AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0696AC1-6AFD-4328-9C7B-7E4AB08370AF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

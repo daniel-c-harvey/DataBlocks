@@ -45,6 +45,10 @@ public static class ScheModelGenerator
             sb.AppendLine();
         }
 
+        // Let the implementation handle schema changes appropriately
+        sb.AppendLine(sqlGenerator.GenerateTableRecreation(columns));
+        sb.AppendLine();
+
         // Modify existing columns
         foreach (var column in columns)
         {
@@ -53,7 +57,7 @@ public static class ScheModelGenerator
         }
 
         // Drop unused columns
-        sb.AppendLine(sqlGenerator.GenerateDropUnusedColumns(columns.Select(c => c.Name)));
+        sb.AppendLine(sqlGenerator.GenerateDropUnusedColumns(columns));
         sb.AppendLine();
 
         // Cleanup

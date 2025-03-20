@@ -35,6 +35,14 @@ namespace DataBlocksTests.Tests
             await TestModelA_QueryByName(dataAdapter, target);
             await TestModelA_QueryById(dataAdapter, target);
             await TestModelA_QueryByPage(dataAdapter, target);
+            
+            target = newModels[x.Next(0, newModels.Count)];
+            target.Age += 1;
+            target.Name = "Billy Bob";
+
+            await TestModelA_UpdateTarget(dataAdapter, target);
+            await TestModelA_QueryById(dataAdapter, target);
+            
             await TestModelA_DeleteAll(dataAdapter, newModels);
         }
 
@@ -48,28 +56,41 @@ namespace DataBlocksTests.Tests
             Assert.That(result.Success, Is.True);
 
             var page = await dataAdapter.GetPage(0, 25);
-            Assert.That(page.Success, Is.True);
-            Assert.That(page.Value, Is.Not.Null);
-            Assert.That(page.Value.Any(), Is.Not.True);
+            Assert.Multiple(() =>
+            {
+                Assert.That(page.Success, Is.True);
+                Assert.That(page.Value, Is.Not.Null);
+                Assert.That(page.Value.Any(), Is.Not.True);
+            });
         }
 
         private static void AssertModelResultIsValid<T>(ResultContainer<T> result)
         {
-            Assert.That(result, Is.Not.Null);
-            Assert.That(result.Success, Is.True);
-            Assert.That(result.Value, Is.Not.Null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(result, Is.Not.Null);
+                Assert.That(result.Success, Is.True);
+                Assert.That(result.Value, Is.Not.Null);
+            });
         }
 
         private static void AssertModelResultHasElements(ResultContainer<IEnumerable<TestModelA>> result)
         {
-            Assert.That(result.Value?.Any(), Is.True);
-            Assert.That(result.Value?.First(), Is.Not.Null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Value?.Any(), Is.True);
+                Assert.That(result.Value?.First(), Is.Not.Null);
+            });
         }
 
         private static void AssertModelResultHasTarget(TestModelA model, TestModelA target)
         {
-            Assert.That(model.Name, Is.EqualTo(target.Name));
-            Assert.That(model.Age, Is.EqualTo(target.Age));
+            Assert.Multiple(() =>
+            {
+                Assert.That(model.Name, Is.EqualTo(target.Name));
+                Assert.That(model.Age, Is.EqualTo(target.Age));
+                Assert.That(model.BirthDate, Is.EqualTo(target.BirthDate));
+            });
         }
         
         private static async Task TestModelA_Insert(IDataAdapter<TestModelA> adapter, IEnumerable<TestModelA> newModels)
@@ -114,6 +135,10 @@ namespace DataBlocksTests.Tests
             });
         }
 
-        
+        private static async Task TestModelA_UpdateTarget(IDataAdapter<TestModelA> adapter, TestModelA target)
+        {
+            var update = await adapter.Update(target);
+            Assert.That(update.Success, Is.True);
+        }
     }
 }

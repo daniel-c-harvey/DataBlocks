@@ -84,7 +84,39 @@ namespace DataBlocks.DataAccess.Postgres
 
         public IDataQuery<IPostgresDatabase, Result> BuildReplace<TModel>(string collection, TModel value) where TModel : IModel
         {
-            throw new NotImplementedException();
+            return new PostgresQuery<Result>(async (database) =>
+            {
+                var result = new Result();
+                try
+                {
+                    
+                    var properties = typeof(TModel).GetProperties()
+                        .Select(p => new {
+                            Property = p,
+                            ScheData = p.GetCustomAttributes(typeof(ScheDataAttribute), true).FirstOrDefault() as ScheDataAttribute
+                        })
+                        .Where(x => x.ScheData != null)
+                        .Where(x => !typeof(ModelBase).GetProperties()
+                                                        .Select(p => p.Name)
+                                                        .Contains(x.Property.Name) // remove the base-type fields from the update
+                                                    || x.Property.Name == nameof(ModelBase.Modified))// except for the modified field which should be updated
+                        .ToList();
+
+                    var sql = $"""
+                               UPDATE {collection} 
+                                    SET {string.Join(", ", properties.Select(p => $"{p.ScheData!.Name} = @{p.Property.Name}"))} 
+                               WHERE id = @{nameof(IModel.ID)}
+                               """;
+
+                    await database.Connection.ExecuteAsync(sql, value);
+                    result.Pass();
+                }
+                catch (Exception ex)
+                {
+                    return result.Fail($"Database error: {ex.Message}");
+                }
+                return result;
+            });
         }
 
         public IDataQuery<IPostgresDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(string collection, int pageIndex, int pageSize) where TModel : IModel

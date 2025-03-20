@@ -1,6 +1,6 @@
 ﻿namespace DataBlocks.Migrations;
 
-[AttributeUsage(AttributeTargets.Property)]
+[AttributeUsage(AttributeTargets.Property, Inherited = true)]
 public class ScheDataAttribute : Attribute
 {
     public string Name { get; }

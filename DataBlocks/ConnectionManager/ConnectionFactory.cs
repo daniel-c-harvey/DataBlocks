@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using DataBlocks.Migrations;
+﻿using DataBlocks.Migrations;
 
 namespace DataBlocks.ConnectionManager
 {
@@ -20,6 +15,8 @@ namespace DataBlocks.ConnectionManager
             {
                 case SqlImplementation.PostgreSQL:
                     return new PostgresConnection(connectionInfo);
+                case SqlImplementation.SQLite:
+                    return new SQLiteConnection(connectionInfo);
                 default:
                     throw new NotSupportedException();
             }

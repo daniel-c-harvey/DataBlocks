@@ -1,4 +1,7 @@
-﻿using MongoDB.Driver;
+﻿using DataBlocks.DataAccess;
+using DataBlocks.DataAccess.Mongo;
+using DataBlocks.DataAdapters;
+using MongoDB.Driver;
 
 namespace DataAccess
 {

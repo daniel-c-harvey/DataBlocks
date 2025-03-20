@@ -1,21 +1,20 @@
-using DataBlocks.Migrations;
-using Npgsql;
+﻿using Microsoft.Data.Sqlite;
 
 namespace DataBlocks.ConnectionManager;
 
-public class PostgresConnection : ISqlConnection
+public class SQLiteConnection : ISqlConnection
 {
     private readonly string _connectionString;
-    private NpgsqlConnection? _connection;
+    private SqliteConnection? _connection;
 
-    public PostgresConnection(ConnectionInfo connectionInfo)
+    public SQLiteConnection(ConnectionInfo connectionInfo)
     {
-        _connectionString = connectionInfo.ToConnectionString();
+        _connectionString = connectionInfo.ToConnectionString();   
     }
-
+    
     public async Task ConnectAsync()
     {
-        _connection = new NpgsqlConnection(_connectionString);
+        _connection = new SqliteConnection(_connectionString);
         await _connection.OpenAsync();
     }
 
@@ -23,13 +22,13 @@ public class PostgresConnection : ISqlConnection
     {
         if (_connection == null)
             throw new InvalidOperationException("Connection not established. Call ConnectAsync first.");
-
-        await using var command = new NpgsqlCommand(sql, _connection);
+        
+        await using var command = new SqliteCommand(sql, _connection);
         await command.ExecuteNonQueryAsync();
     }
-
+    
     public void Dispose()
     {
         _connection?.Dispose();
     }
-} 
+}

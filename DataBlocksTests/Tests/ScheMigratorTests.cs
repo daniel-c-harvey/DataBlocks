@@ -1,11 +1,13 @@
-﻿using DataBlocks.Migrations;
+﻿
+using DataBlocks.Migrations;
+using DataBlocksTests.Models;
 using ScheMigrator.Migrations;
-using ScheMigratorTests.Models;
 
-namespace ScheMigratorTests.Tests;
+namespace DataBlocksTests.Tests;
+
 
 [TestFixture]
-public class MainTest
+public class ScheMigratorTests
 {
     [SetUp]
     public void Setup()
@@ -26,5 +28,4 @@ public class MainTest
         var ddl = ScheModelGenerator.GenerateModelDDL<TestModelA>(SqlImplementation.SQLite, string.Empty);
         Assert.Pass();
     }
-    
 }

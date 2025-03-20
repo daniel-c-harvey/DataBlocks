@@ -26,17 +26,23 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="SQL\" />
+      <None Update="environment\connections.json">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
-    <UsingTask TaskName="ScheMigrator.DDLGeneratorTask" 
+    <UsingTask TaskName="ScheMigrator.DDLGeneratorTask"
                AssemblyFile="$(MSBuildThisFileDirectory)..\ScheMigrator\$(OutputPath)ScheMigrator.dll" />
 
     <Target Name="GenerateDDL" AfterTargets="Build">
         <DDLGeneratorTask
-            AssemblyPath="$(TargetPath)"
-            OutputPath="$(ProjectDir)SQL"
-            Implementation="PostgreSQL"/>
+                AssemblyPath="$(TargetPath)"
+                OutputPath="$(ProjectDir)SQL"
+                Implementation="PostgreSQL"/>
+        <DDLGeneratorTask
+                AssemblyPath="$(TargetPath)"
+                OutputPath="$(ProjectDir)SQL"
+                Implementation="SQLite"/>
     </Target>
 
 </Project>

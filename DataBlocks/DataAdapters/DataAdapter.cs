@@ -1,6 +1,8 @@
-﻿using NetBlocks.Models;
+﻿using System.Linq.Expressions;
+using DataBlocks.DataAccess;
+using NetBlocks.Models;
 
-namespace DataAccess
+namespace DataBlocks.DataAdapters
 {
     public abstract class DataAdapter<TDatabase, TDataAccess, TQueryBuilder, TModel> : IDataAdapter<TModel>
         where TDatabase : class
@@ -19,17 +21,12 @@ namespace DataAccess
             Schema = schema;
         }
 
-        ResultContainer<TModel> IDataAdapter<TModel>.GetByID(int id)
+        public async Task<ResultContainer<TModel>> GetByID(long id)
         {
-            throw new NotImplementedException();
-        }
-
-        public ResultContainer<IEnumerable<TModel>> GetPage(int pageIndex, int pageSize)
-        {
-            var modelResults = new ResultContainer<IEnumerable<TModel>>();
+            var modelResults = new ResultContainer<TModel>();
             try
             {
-                modelResults = DataAccess.ExecQuery(QueryBuilder.BuildRetrieve<TModel>(Schema.Collection, pageIndex, pageSize));
+                modelResults = await DataAccess.ExecQueryOne(QueryBuilder.BuildRetrieveById<TModel>(Schema.CollectionName, id));
                 return modelResults;
             }
             catch (Exception ex) 
@@ -38,33 +35,63 @@ namespace DataAccess
             }
         }
 
-        public Result Delete(TModel model)
+        public async Task<ResultContainer<IEnumerable<TModel>>> GetPage(int pageIndex, int pageSize)
         {
-            return DataAccess.ExecNonQuery(QueryBuilder.BuildDelete(Schema.Collection, model));
+            var modelResults = new ResultContainer<IEnumerable<TModel>>();
+            try
+            {
+                modelResults = await DataAccess.ExecQuery(QueryBuilder.BuildRetrieve<TModel>(Schema.CollectionName, pageIndex, pageSize));
+                return modelResults;
+            }
+            catch (Exception ex) 
+            {
+                return modelResults.Fail(ex.Message);
+            }
+        }
+
+        public async Task<ResultContainer<IEnumerable<TModel>>> GetByPredicate(Expression<Func<TModel, bool>> predicate)
+        {
+            var modelResults = new ResultContainer<IEnumerable<TModel>>();
+            try
+            {
+                modelResults = await DataAccess.ExecQuery(QueryBuilder.BuildRetrieve(Schema.CollectionName, predicate));
+                return modelResults;
+            }
+            catch (Exception ex) 
+            {
+                return modelResults.Fail(ex.Message);
+            }
+        }
+
+        public async Task<Result> Delete(TModel model)
+        {
+            return await DataAccess.ExecNonQuery(QueryBuilder.BuildDelete(Schema.CollectionName, model));
         }
 
 
-        public Result Insert(TModel model)
+        public async Task<Result> Insert(TModel model)
         {
             try
             {
-                DataAccess.ExecNonQuery(QueryBuilder.BuildInsert(Schema.Collection, model));
+                Model.PrepareForInsert(model);
+                await DataAccess.ExecNonQuery(QueryBuilder.BuildInsert(Schema.CollectionName, model));
             }
             catch (Exception e) { return Result.CreateFailResult($"Database error: {e.Message}"); }
             return Result.CreatePassResult();
         }
 
-        public Result Insert(IEnumerable<TModel> models)
+        public async Task<Result> Insert(IEnumerable<TModel> models)
         {
             throw new NotImplementedException();
         }
 
         
-        public Result Update(TModel model)
+        public async Task<Result> Update(TModel model)
         {
             try
             {
-                DataAccess.ExecNonQuery(QueryBuilder.BuildReplace(Schema.Collection, model));
+                Model.PrepareForUpdate(model);
+                await DataAccess.ExecNonQuery(QueryBuilder.BuildReplace(Schema.CollectionName, model));
             }
             catch (Exception e) { return Result.CreateFailResult($"Database error: {e.Message}"); }
             return Result.CreatePassResult();

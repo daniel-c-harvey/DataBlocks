@@ -2,10 +2,11 @@
 
 public enum SqlImplementation
 {
-    PostgreSQL
+    PostgreSQL,
+    SQLite
 }
 
 public static class SqlImplementationUtil
 {
-    public static IList<SqlImplementation> Implementations = [SqlImplementation.PostgreSQL];
+    public static IList<SqlImplementation> Implementations = [SqlImplementation.PostgreSQL, SqlImplementation.SQLite];
 }

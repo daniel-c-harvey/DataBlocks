@@ -1,14 +1,17 @@
-﻿using NetBlocks.Models;
+﻿using System.Linq.Expressions;
+using DataBlocks.DataAccess;
+using NetBlocks.Models;
 
-namespace DataAccess
+namespace DataBlocks.DataAdapters
 {
     public interface IDataAdapter<TModel> where TModel : IModel
     {
-        ResultContainer<IEnumerable<TModel>> GetPage(int page, int pageSize);
-        ResultContainer<TModel> GetByID(int id);
-        Result Insert(TModel model);
-        Result Insert(IEnumerable<TModel> models);
-        Result Update(TModel model);
-        Result Delete(TModel model);
+        Task<ResultContainer<IEnumerable<TModel>>> GetPage(int page, int pageSize);
+        Task<ResultContainer<TModel>> GetByID(long id);
+        Task<ResultContainer<IEnumerable<TModel>>> GetByPredicate(Expression<Func<TModel, bool>> predicate);
+        Task<Result> Insert(TModel model);
+        Task<Result> Insert(IEnumerable<TModel> models);
+        Task<Result> Update(TModel model);
+        Task<Result> Delete(TModel model);
     }
 }

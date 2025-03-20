@@ -7,17 +7,29 @@ namespace DataBlocks.Migrations;
 public class ScheModelPackage
 {
     private static readonly string PACKAGE_NAME = "SchePackage";
-    public IList<string> Scripts { get; private init; } = new List<string>();
+    private Package ScriptsPackage { get; init; }
+    
+    public IEnumerable<string> Scripts => ScriptsPackage.Scripts;
+
+    public ScheModelPackage(SqlImplementation implementation)
+    {
+        ScriptsPackage = new Package { Implementation = implementation };
+    }
+    
+    private ScheModelPackage(Package package)
+    {
+        ScriptsPackage = package;
+    }
     
     public ScheModelPackage AddScript(string script)
     {
-        Scripts.Add(script);
+        ScriptsPackage.Scripts.Add(script);
         return this;
     }
 
-    public byte[] Package()
+    public byte[] MakePackage()
     {
-        byte[] package = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(Scripts));
+        byte[] package = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(ScriptsPackage));
 
         using var outStream = new MemoryStream();
         using (var archive = new ZipArchive(outStream, ZipArchiveMode.Create, true))
@@ -55,15 +67,18 @@ public class ScheModelPackage
 
         decompressedBytes = outStream.ToArray();
 
-        IList<string>? packageContents = JsonSerializer.Deserialize<IList<string>>(Encoding.UTF8.GetString(decompressedBytes));
+        Package? packageContents = JsonSerializer.Deserialize<Package>(Encoding.UTF8.GetString(decompressedBytes));
         if (packageContents == null)
         {
             throw new Exception("Package content is null");
-        } 
-        
-        return new ScheModelPackage()
-        {
-            Scripts = packageContents 
-        };
+        }
+
+        return new ScheModelPackage(packageContents);
+    }
+    
+    private class Package
+    {
+        public required SqlImplementation Implementation { get; init; }
+        public IList<string> Scripts { get; init; } = new List<string>();
     }
 }

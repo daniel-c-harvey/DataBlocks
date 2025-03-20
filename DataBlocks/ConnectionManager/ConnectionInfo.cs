@@ -1,6 +1,6 @@
+using System.Text.Json.Serialization;
 using DataBlocks.Migrations;
 using NetBlocks.Interfaces;
-using System.Text.Json.Serialization;
 
 namespace DataBlocks.ConnectionManager;
 
@@ -14,11 +14,26 @@ public class ConnectionInfo : ICloneable<ConnectionInfo>
     public SqlImplementation Implementation { get; set; } = SqlImplementation.PostgreSQL;
 
     [JsonIgnore]
-    public bool IsValid => !string.IsNullOrEmpty(Host) &&
+    public bool IsValid
+    {
+        get
+        {
+            switch (Implementation)
+            {
+                case SqlImplementation.PostgreSQL:
+                    return !string.IsNullOrEmpty(Host) &&
                            !string.IsNullOrEmpty(Username) &&
                            !string.IsNullOrEmpty(Password) &&
                            !string.IsNullOrEmpty(Database) &&
                            Enum.IsDefined(typeof(SqlImplementation), Implementation);
+                case SqlImplementation.SQLite:
+                    return !string.IsNullOrEmpty(Database) &&
+                           Enum.IsDefined(typeof(SqlImplementation), Implementation);
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+    }
 
     public ConnectionInfo(int id)
     {
@@ -27,7 +42,15 @@ public class ConnectionInfo : ICloneable<ConnectionInfo>
 
     public string ToConnectionString()
     {
-        return $"Host={Host};Username={Username};Password={Password};Database={Database}";
+        switch (Implementation)
+        {
+            case SqlImplementation.PostgreSQL:
+                return $"Host={Host};Username={Username};Password={Password};Database={Database}";
+            case SqlImplementation.SQLite:
+                return $"Data Source={Database};Password={Password}Mode=ReadWrite;";
+            default:
+                throw new NotImplementedException();
+        }
     }
     
     public string ToDisplayString()

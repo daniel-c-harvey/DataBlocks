@@ -89,26 +89,32 @@ namespace DataBlocks.DataAccess.Postgres
                 var result = new Result();
                 try
                 {
-                    
                     var properties = typeof(TModel).GetProperties()
                         .Select(p => new {
                             Property = p,
                             ScheData = p.GetCustomAttributes(typeof(ScheDataAttribute), true).FirstOrDefault() as ScheDataAttribute
                         })
                         .Where(x => x.ScheData != null)
-                        .Where(x => !typeof(ModelBase).GetProperties()
+                        .Where(x => !typeof(IModel).GetProperties()
                                                         .Select(p => p.Name)
                                                         .Contains(x.Property.Name) // remove the base-type fields from the update
-                                                    || x.Property.Name == nameof(ModelBase.Modified))// except for the modified field which should be updated
+                                                    || x.Property.Name == nameof(IModel.Modified))// except for the modified field which should be updated
                         .ToList();
 
+                    var originalModifiedDate = value.Modified;
+                    Model.PrepareForUpdate(value);
+                    
+                    var parameters = new DynamicParameters(value);
+                    parameters.Add("OriginalModified", originalModifiedDate); // Add original modified date for WHERE clause comparison
+                    
                     var sql = $"""
                                UPDATE {collection} 
                                     SET {string.Join(", ", properties.Select(p => $"{p.ScheData!.Name} = @{p.Property.Name}"))} 
                                WHERE id = @{nameof(IModel.ID)}
+                                 AND modified = @OriginalModified 
                                """;
 
-                    await database.Connection.ExecuteAsync(sql, value);
+                    await database.Connection.ExecuteAsync(sql, parameters);
                     result.Pass();
                 }
                 catch (Exception ex)

@@ -6,8 +6,10 @@ using DataBlocks.Migrations;
 namespace DataBlocksTests.Models;
 
 [ScheModel]
-public class TestModelA : ModelBase, IModel
+public class TestModelA : IModel
 {
+    [ScheKey("id")]
+    public long ID { get; set; }
     [ScheData("name")]
     public string Name { get; set; }
 
@@ -16,4 +18,11 @@ public class TestModelA : ModelBase, IModel
     
     [ScheData("birth_date")]
     public DateTime BirthDate { get; set; }
+
+    [ScheData("deleted")]
+    public bool Deleted { get; set; }
+    [ScheData("created")]
+    public DateTime Created { get; set; }
+    [ScheData("modified")]
+    public DateTime Modified { get; set; }
 }

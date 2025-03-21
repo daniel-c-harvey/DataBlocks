@@ -90,7 +90,6 @@ namespace DataBlocks.DataAdapters
         {
             try
             {
-                Model.PrepareForUpdate(model);
                 await DataAccess.ExecNonQuery(QueryBuilder.BuildReplace(Schema.CollectionName, model));
             }
             catch (Exception e) { return Result.CreateFailResult($"Database error: {e.Message}"); }

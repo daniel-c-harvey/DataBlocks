@@ -11,6 +11,7 @@ public class SqliteGenerator : ISqlGenerator
         { "Int64", "INTEGER" },
         { "String", "TEXT" },
         { "DateTime", "TEXT" },
+        { "DateTimeOffset", "TEXT" },
         { "Boolean", "INTEGER" },
         { "Decimal", "REAL" },
         { "Double", "REAL" },

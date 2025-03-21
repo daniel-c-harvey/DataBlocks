@@ -15,8 +15,8 @@ namespace DataBlocks.DataAccess
 
     public interface IDataAccess<TDatabase>
     {
-        Task<ResultContainer<string>> GetConnectionString();
-        Task<ResultContainer<string>> GetDatabaseName();
+        string GetConnectionString();
+        string GetDatabaseName();
         // ResultContainer<IEnumerable<string>> GetDatabaseNames();
         // Result ChangeConnection(Connection connection, string databaseName);
         Task<ResultContainer<IEnumerable<TModel>>> ExecQuery<TModel>(IDataQuery<TDatabase, ResultContainer<IEnumerable<TModel>>> query);

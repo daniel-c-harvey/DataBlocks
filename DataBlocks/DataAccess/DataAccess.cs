@@ -12,18 +12,18 @@ public abstract class DataAccess<TClient, TDatabase> : IDataAccess<TDatabase>
         if (string.IsNullOrWhiteSpace(databaseName)) { throw new ArgumentNullException(nameof(databaseName)); }
     }
 
-    public async Task<ResultContainer<string>> GetConnectionString()
+    public string GetConnectionString()
     {
         if (DBClient == null) { throw new ArgumentNullException(nameof(DBClient)); }
 
-        return new ResultContainer<string>(DBClient.ConnectionString);
+        return DBClient.ConnectionString;
     }
 
-    public async Task<ResultContainer<string>> GetDatabaseName()
+    public string GetDatabaseName()
     {
         if (DBClient?.Connection == null) { throw new ArgumentNullException(nameof(DBClient.Connection)); }
 
-        return new ResultContainer<string>(DBClient.Connection.DatabaseName);
+        return DBClient.Connection.DatabaseName;
     }
 
     // public abstract ResultContainer<IEnumerable<string>> GetDatabaseNames();

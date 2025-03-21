@@ -1,5 +1,7 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
 using DataBlocks.Migrations;
+using NUnit.Framework;
 
 namespace ScheMigrator.Migrations;
 
@@ -11,6 +13,7 @@ public class PostgreSqlGenerator : ISqlGenerator
         { "Int64", "bigint" },
         { "String", "text" },
         { "DateTime", "timestamp" },
+        { "DateTimeOffset", "timestamptz" },
         { "Boolean", "boolean" },
         { "Decimal", "numeric" },
         { "Double", "double precision" },
@@ -33,11 +36,12 @@ public class PostgreSqlGenerator : ISqlGenerator
     public static string MapCSharpType(Type type)
     {
         var typeName = type.Name;
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+        if (Regex.Match(type.Name, @"Nullable`\d").Success)
         {
-            typeName = Nullable.GetUnderlyingType(type)!.Name;
+            var underlyingType = type.GetGenericArguments()[0]!;
+            typeName = underlyingType.Name;
         }
-
+        
         if (!_typeMap.TryGetValue(typeName, out string dbType))
         {
             throw new ArgumentException($"Unsupported type: {typeName}");

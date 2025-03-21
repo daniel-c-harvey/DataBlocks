@@ -75,19 +75,22 @@ public static class ScheModelGenerator
         string[] COLUMN_ATTRS = [nameof(ScheDataAttribute), nameof(ScheKeyAttribute)];
         
         return type.GetProperties()
-            .Select(p => (Property: p, Attribute: p.GetCustomAttributes()
-                .FirstOrDefault(a => COLUMN_ATTRS.Contains(a.GetType().Name))))
+            .Select(p => (Property: p, Attribute: p.GetCustomAttributesData()
+                .FirstOrDefault(a => COLUMN_ATTRS.Contains(a.AttributeType.Name))))
             .Where(x => x.Attribute != null)
             .Select(x => 
             {
                 var attrType = x.Attribute!.GetType();
+                var isAttrNullable = (bool?)attrType.GetProperty(nameof(ScheDataAttribute.IsNullable))?.GetValue(x.Attribute) ?? true;
+                var isTypeNullable = x.Property.PropertyType.IsGenericType && x.Property.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>);
+                
                 return new ColumnInfo
                 {
                     Name = (attrType.GetProperty("Name")?.GetValue(x.Attribute) as string) 
                         ?? x.Property.Name.ToLower(),
                     PropertyType = x.Property.PropertyType,
                     IsPrimaryKey = (bool?)attrType.GetProperty(nameof(ScheDataAttribute.IsPrimaryKey))?.GetValue(x.Attribute) ?? false,
-                    IsNullable = (bool?)attrType.GetProperty(nameof(ScheDataAttribute.IsNullable))?.GetValue(x.Attribute) ?? true
+                    IsNullable = isAttrNullable || isTypeNullable
                 };
             });
     }

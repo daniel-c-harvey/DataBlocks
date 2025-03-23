@@ -1,6 +1,4 @@
-﻿
-using DataBlocks.Migrations;
-using DataBlocksTests.Models;
+﻿using DataBlocksTests.Models;
 using ScheMigrator.Migrations;
 
 namespace DataBlocksTests.Tests;

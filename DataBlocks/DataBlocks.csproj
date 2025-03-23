@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ScheMigrator\ScheMigrator.csproj" />
     <ProjectReference Include="C:\lib\NetBlocks\NetBlocks.csproj" />
   </ItemGroup>
   

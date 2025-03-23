@@ -1,7 +1,7 @@
 using Dapper;
 using ExpressionToSql;
 using ExpressionToSql.Dapper;
-using DataBlocks.Migrations;
+using ScheMigrator.Migrations;
 using NetBlocks.Models;
 using System.Linq.Expressions;
 using NetBlocks.Utilities;

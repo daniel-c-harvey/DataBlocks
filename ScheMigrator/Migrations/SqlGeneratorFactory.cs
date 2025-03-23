@@ -1,4 +1,5 @@
-﻿using DataBlocks.Migrations;
+﻿using System;
+using System.Collections.Generic;
 
 namespace ScheMigrator.Migrations
 {

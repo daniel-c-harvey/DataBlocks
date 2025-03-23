@@ -1,9 +1,8 @@
-using DataAccess;
 using DataBlocks.DataAccess;
-using DataBlocks.Migrations;
 using Microsoft.AspNetCore.Identity;
+using ScheMigrator.Migrations;
 
-namespace ScheMigratorTests.Models;
+namespace DataBlocksTests.Models;
 
 [ScheModel]
 public class ApplicationUser : IdentityUser<long>, IModel

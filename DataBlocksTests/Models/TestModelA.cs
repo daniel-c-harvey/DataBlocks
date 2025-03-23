@@ -1,7 +1,5 @@
-﻿using System.Text.Json.Serialization;
-using DataAccess;
-using DataBlocks.DataAccess;
-using DataBlocks.Migrations;
+﻿using DataBlocks.DataAccess;
+using ScheMigrator.Migrations;
 
 namespace DataBlocksTests.Models;
 

@@ -9,16 +9,23 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="coverlet.collector" Version="6.0.2"/>
+        <PackageReference Include="coverlet.collector" Version="6.0.4">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="Microsoft.Extensions.Identity.Stores" Version="9.0.3" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1"/>
-        <PackageReference Include="NUnit" Version="4.2.2"/>
-        <PackageReference Include="NUnit.Analyzers" Version="4.3.0"/>
-        <PackageReference Include="NUnit3TestAdapter" Version="4.6.0"/>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+        <PackageReference Include="NUnit" Version="4.3.2" />
+        <PackageReference Include="NUnit.Analyzers" Version="4.6.0">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="NUnit3TestAdapter" Version="5.0.0" />
+        <PackageReference Include="System.Reflection.MetadataLoadContext" Version="9.0.3" />
     </ItemGroup>
 
     <ItemGroup>
-        <Using Include="NUnit.Framework"/>
+        <Using Include="NUnit.Framework" />
     </ItemGroup>
 
     <ItemGroup>
@@ -32,18 +39,26 @@
       </None>
     </ItemGroup>
 
-<!--    <UsingTask TaskName="ScheMigrator.DDLGeneratorTask"-->
-<!--               AssemblyFile="$(MSBuildThisFileDirectory)..\ScheMigrator\$(OutputPath)ScheMigrator.dll" />-->
+    <!-- <UsingTask TaskName="ScheMigrator.DDLGeneratorTask" AssemblyFile="C:\lib\DataBlocks\ScheMigrator\bin\Debug\netstandard2.0\ScheMigrator.dll" /> -->
 
-<!--    <Target Name="GenerateDDL" AfterTargets="Build">-->
-<!--        <DDLGeneratorTask-->
-<!--                AssemblyPath="$(TargetPath)"-->
-<!--                OutputPath="$(ProjectDir)SQL"-->
-<!--                Implementation="PostgreSQL"/>-->
-<!--        <DDLGeneratorTask-->
-<!--                AssemblyPath="$(TargetPath)"-->
-<!--                OutputPath="$(ProjectDir)SQL"-->
-<!--                Implementation="SQLite"/>-->
-<!--    </Target>-->
+    <!-- <Target Name="GenerateDDL" AfterTargets="Build"> -->
+        <!-- <DDLGeneratorTask AssemblyPaths="$(TargetPath);$(NuGetPackageRoot)microsoft.extensions.identity.stores\9.0.3\lib\net9.0\Microsoft.Extensions.Identity.Stores.dll;" ScheMigratorAssemblyPath="C:\lib\DataBlocks\ScheMigrator\bin\Debug\netstandard2.0\ScheMigrator.dll" OutputPath="$(ProjectDir)SQL" Implementation="PostgreSQL" Verbose="true" /> -->
+        <!--<DDLGeneratorTask
+                AssemblyPaths="$(TargetPath);$(NuGetPackageRoot)microsoft.extensions.identity.stores\9.0.3\lib\net9.0\Microsoft.Extensions.Identity.Stores.dll;"
+                ScheMigratorAssemblyPath="C:\lib\DataBlocks\ScheMigrator\bin\Debug\netstandard2.0\ScheMigrator.dll"
+                OutputPath="$(ProjectDir)SQL"
+                Implementation="SQLite"/>-->
+    <!-- </Target> -->
+
+    
+  
+  <PropertyGroup>
+    <AssemblyPath>$(NuGetPackageRoot)microsoft.extensions.identity.stores\9.0.3\lib\net9.0\Microsoft.Extensions.Identity.Stores.dll</AssemblyPath>
+    <OutPath>Migrations</OutPath>
+    <Implementation>PostgreSQL</Implementation>
+    <Schema>users</Schema>
+  </PropertyGroup>
+
+  <Import Project="../ScheMigrator/DDLGenerator.targets" />
 
 </Project>

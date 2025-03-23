@@ -1,5 +1,5 @@
 
-using DataBlocks.Migrations;
+using ScheMigrator.Migrations;
 using NetBlocks.Models;
 
 namespace DataBlocks.DataAccess

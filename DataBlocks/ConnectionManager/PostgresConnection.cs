@@ -1,4 +1,4 @@
-using DataBlocks.Migrations;
+using ScheMigrator.Migrations;
 using Npgsql;
 
 namespace DataBlocks.ConnectionManager;

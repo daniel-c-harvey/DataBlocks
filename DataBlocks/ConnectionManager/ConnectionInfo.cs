@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using DataBlocks.Migrations;
+using ScheMigrator.Migrations;
 using NetBlocks.Interfaces;
 
 namespace DataBlocks.ConnectionManager;

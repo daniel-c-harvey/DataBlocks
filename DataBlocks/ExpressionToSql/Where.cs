@@ -3,7 +3,7 @@ namespace ExpressionToSql
     using System;
     using System.Linq.Expressions;
     using System.Linq;
-    using DataBlocks.Migrations;
+    using ScheMigrator.Migrations;
 
     public class Where<T, R> : Query
     {

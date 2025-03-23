@@ -1,4 +1,4 @@
-﻿using DataBlocks.Migrations;
+﻿using ScheMigrator.Migrations;
 
 namespace DataBlocks.ConnectionManager;
 

@@ -2,11 +2,11 @@ using System.Reflection;
 
 namespace ExpressionToSql
 {
+    using ScheMigrator.Migrations;
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Linq.Expressions;
-    using DataBlocks.Migrations;
 
     public class Select<T, R> : Query
     {

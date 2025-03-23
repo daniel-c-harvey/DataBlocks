@@ -1,5 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
-using DataBlocks.Migrations;
+using System.Text.RegularExpressions;
 
 namespace ScheMigrator.Migrations;
 
@@ -32,9 +35,10 @@ public class SqliteGenerator : ISqlGenerator
     public static string MapCSharpType(Type type)
     {
         var typeName = type.Name;
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+        if (Regex.Match(type.Name, @"Nullable`\d").Success)
         {
-            typeName = Nullable.GetUnderlyingType(type)!.Name;
+            var underlyingType = type.GetGenericArguments()[0];
+            typeName = underlyingType.Name;
         }
 
         if (!_typeMap.TryGetValue(typeName, out string dbType))

@@ -1,15 +1,10 @@
-using System;
 using System.Reflection;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 using DataBlocks.Migrations;
 using ScheMigrator.Migrations;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Runtime.Loader;
 using NetBlocks.Utilities;
+using System.Runtime.InteropServices;
 
 namespace ScheMigrator;
 
@@ -175,7 +170,7 @@ public class DDLGeneratorTask : Microsoft.Build.Utilities.Task
         {
             LogVerbose(
                 $"Loading assemblies from: {string.Join("\n", assemblyPaths.Select(p => Path.GetFullPath(p)))}");
-            
+
             string[] runtimeAssemblies = Directory.GetFiles(RuntimeEnvironment.GetRuntimeDirectory(), "*.dll");                        
             var paths = new List<string>(runtimeAssemblies);
             LogVerbose(string.Join("\n", paths.Select(p => Path.GetFullPath(p))));

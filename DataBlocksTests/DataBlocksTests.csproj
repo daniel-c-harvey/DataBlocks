@@ -39,26 +39,12 @@
       </None>
     </ItemGroup>
 
-    <!-- <UsingTask TaskName="ScheMigrator.DDLGeneratorTask" AssemblyFile="C:\lib\DataBlocks\ScheMigrator\bin\Debug\netstandard2.0\ScheMigrator.dll" /> -->
-
-    <!-- <Target Name="GenerateDDL" AfterTargets="Build"> -->
-        <!-- <DDLGeneratorTask AssemblyPaths="$(TargetPath);$(NuGetPackageRoot)microsoft.extensions.identity.stores\9.0.3\lib\net9.0\Microsoft.Extensions.Identity.Stores.dll;" ScheMigratorAssemblyPath="C:\lib\DataBlocks\ScheMigrator\bin\Debug\netstandard2.0\ScheMigrator.dll" OutputPath="$(ProjectDir)SQL" Implementation="PostgreSQL" Verbose="true" /> -->
-        <!--<DDLGeneratorTask
-                AssemblyPaths="$(TargetPath);$(NuGetPackageRoot)microsoft.extensions.identity.stores\9.0.3\lib\net9.0\Microsoft.Extensions.Identity.Stores.dll;"
-                ScheMigratorAssemblyPath="C:\lib\DataBlocks\ScheMigrator\bin\Debug\netstandard2.0\ScheMigrator.dll"
-                OutputPath="$(ProjectDir)SQL"
-                Implementation="SQLite"/>-->
-    <!-- </Target> -->
-
-    
+  <Target Name="PrepareDDLGenerator" AfterTargets="Build">
+    <PropertyGroup>
+      <DependencyPaths>$(NuGetPackageRoot)microsoft.extensions.identity.stores\9.0.3\lib\net9.0\Microsoft.Extensions.Identity.Stores.dll</DependencyPaths>
+    </PropertyGroup>
+    <MSBuild Projects="../ScheMigrator/DDLGenerator.targets" Targets="GenerateDDL" Properties="TargetAssemblyPaths=$(TargetPath);DependencyPaths=$(DependencyPaths);OutPath=Migrations;Implementation=PostgreSQL;Schema=users"/>
+  </Target>
   
-  <PropertyGroup>
-    <AssemblyPath>$(NuGetPackageRoot)microsoft.extensions.identity.stores\9.0.3\lib\net9.0\Microsoft.Extensions.Identity.Stores.dll</AssemblyPath>
-    <OutPath>Migrations</OutPath>
-    <Implementation>PostgreSQL</Implementation>
-    <Schema>users</Schema>
-  </PropertyGroup>
-
-  <Import Project="../ScheMigrator/DDLGenerator.targets" />
 
 </Project>

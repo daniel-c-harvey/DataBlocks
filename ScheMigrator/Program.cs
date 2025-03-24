@@ -5,11 +5,10 @@ namespace ScheMigrator
         public static int Main(string[] args)
         {
             try
-            {
-                Console.WriteLine($"Arguments received: {string.Join(" ", args)}");  // Debug logging
-                
+            {                
                 var generator = new DDLGenerator();
                 var assemblyPaths = new List<string>();
+                var dependencyPaths = new List<string>();
                 
                 // Parse command line arguments
                 for (int i = 0; i < args.Length; i++)
@@ -17,11 +16,18 @@ namespace ScheMigrator
                     switch (args[i].ToLower())
                     {
                         case "-a":
-                        case "--assembly":
+                        case "--assemblies":
                             if (i + 1 < args.Length)
                             {
-                                assemblyPaths.AddRange(args[++i].Split(';'));
+                                assemblyPaths.AddRange(args[++i].Split(';').Where(path => !string.IsNullOrWhiteSpace(path)));
                             }
+                            break;
+                        case "-d":
+                        case "--dependencies":
+                            if (i + 1 < args.Length)
+                            {
+                                dependencyPaths.AddRange(args[++i].Split(';').Where((path) => !string.IsNullOrWhiteSpace(path)));
+                            } 
                             break;
                         case "-s":
                         case "--schemigrator":
@@ -42,7 +48,6 @@ namespace ScheMigrator
                             if (i + 1 < args.Length)
                             {
                                 generator.Implementation = args[++i];
-                                Console.WriteLine($"Implementation set to: {generator.Implementation}");  // Debug logging
                             }
                             break;
                         case "--schema":
@@ -67,10 +72,11 @@ namespace ScheMigrator
                 }
 
                 // Set the assembly paths after collecting all of them
-                generator.AssemblyPaths = assemblyPaths.ToArray();
+                generator.TargetAssemblyPaths = assemblyPaths.ToArray();
+                generator.DependencyAssemblyPaths = dependencyPaths.ToArray();
 
                 // Validate required parameters
-                if (generator.AssemblyPaths == null || !generator.AssemblyPaths.Any())
+                if (generator.TargetAssemblyPaths == null || !generator.TargetAssemblyPaths.Any())
                 {
                     Console.Error.WriteLine("Assembly path is required");
                     PrintHelp();

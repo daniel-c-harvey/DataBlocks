@@ -10,15 +10,17 @@ namespace DataBlocks.DataAccess.Postgres
 {
     public class PostgresQueryBuilder : IQueryBuilder<IPostgresDatabase>
     {
-        
-        public IDataQuery<IPostgresDatabase, ResultContainer<TModel>> BuildRetrieveById<TModel>(string collection, long id) where TModel : IModel
+        private readonly PostgreSqlDialect _dialect = new PostgreSqlDialect();
+
+        public IDataQuery<IPostgresDatabase, ResultContainer<TModel>> BuildRetrieveById<TModel>(DataSchema target, long id) where TModel : IModel
         {
             return new PostgresQuery<ResultContainer<TModel>>(async (database) =>
             {
                 var modelResults = new ResultContainer<TModel>();
                 try
                 {
-                    var query = PSql.Select<TModel, TModel>(x => x, collection).Where(x => x.ID == id);
+                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
+                    var query = PSql.Select<TModel, TModel>(x => x, table).Where(x => x.ID == id);
                     var result = await database.Connection.QueryAsync(query);
                     if (result != null)
                     {
@@ -33,13 +35,14 @@ namespace DataBlocks.DataAccess.Postgres
             });
         }
 
-        public IDataQuery<IPostgresDatabase, Result> BuildDelete<TModel>(string collection, TModel value) where TModel : IModel
+        public IDataQuery<IPostgresDatabase, Result> BuildDelete<TModel>(DataSchema target, TModel value) where TModel : IModel
         {
             return new PostgresQuery<Result>(async (database) =>
             {
                 try
                 {
-                    string sql = $"DELETE FROM {collection} WHERE id = @id";
+                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
+                    string sql = $"DELETE FROM {_dialect.FormatSchemaName(table.Schema)}.{_dialect.EscapeIdentifier(table.Name)} WHERE id = @id";
                     await database.Connection.QueryAsync(sql, new { id = value.ID });
                     return Result.CreatePassResult();
                 }
@@ -50,14 +53,13 @@ namespace DataBlocks.DataAccess.Postgres
             });
         }
 
-        public IDataQuery<IPostgresDatabase, Result> BuildInsert<TModel>(string collection, TModel value) where TModel : IModel
+        public IDataQuery<IPostgresDatabase, Result> BuildInsert<TModel>(DataSchema target, TModel value) where TModel : IModel
         {
             return new PostgresQuery<Result>(async (database) =>
             {
                 var result = new Result();
                 try
                 {
-                    
                     var properties = typeof(TModel).GetProperties()
                         .Select(p => new {
                             Property = p,
@@ -66,10 +68,11 @@ namespace DataBlocks.DataAccess.Postgres
                         .Where(x => x.ScheData != null)
                         .ToList();
 
-                    var columnNames = string.Join(", ", properties.Select(p => p.ScheData!.Name));
+                    var columnNames = string.Join(", ", properties.Select(p => _dialect.EscapeIdentifier(p.ScheData!.FieldName)));
                     var paramNames = string.Join(", ", properties.Select(p => "@" + p.Property.Name));
 
-                    var sql = $"INSERT INTO {collection} ({columnNames}) VALUES ({paramNames})";
+                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
+                    var sql = $"INSERT INTO {_dialect.FormatSchemaName(table.Schema)}.{_dialect.EscapeIdentifier(table.Name)} ({columnNames}) VALUES ({paramNames})";
 
                     await database.Connection.ExecuteAsync(sql, value);
                     result.Pass();
@@ -82,7 +85,7 @@ namespace DataBlocks.DataAccess.Postgres
             });
         }
 
-        public IDataQuery<IPostgresDatabase, Result> BuildReplace<TModel>(string collection, TModel value) where TModel : IModel
+        public IDataQuery<IPostgresDatabase, Result> BuildReplace<TModel>(DataSchema target, TModel value) where TModel : IModel
         {
             return new PostgresQuery<Result>(async (database) =>
             {
@@ -107,9 +110,10 @@ namespace DataBlocks.DataAccess.Postgres
                     var parameters = new DynamicParameters(value);
                     parameters.Add("OriginalModified", originalModifiedDate); // Add original modified date for WHERE clause comparison
                     
+                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
                     var sql = $"""
-                               UPDATE {collection} 
-                                    SET {string.Join(", ", properties.Select(p => $"{p.ScheData!.Name} = @{p.Property.Name}"))} 
+                               UPDATE {_dialect.FormatSchemaName(table.Schema)}.{_dialect.EscapeIdentifier(table.Name)} 
+                                    SET {string.Join(", ", properties.Select(p => $"{_dialect.EscapeIdentifier(p.ScheData!.FieldName)} = @{p.Property.Name}"))} 
                                WHERE id = @{nameof(IModel.ID)}
                                  AND modified = @OriginalModified 
                                """;
@@ -125,13 +129,14 @@ namespace DataBlocks.DataAccess.Postgres
             });
         }
 
-        public IDataQuery<IPostgresDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(string collection, int pageIndex, int pageSize) where TModel : IModel
+        public IDataQuery<IPostgresDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(DataSchema target, int pageIndex, int pageSize) where TModel : IModel
         {
             return new PostgresQuery<ResultContainer<IEnumerable<TModel>>>(async (database) =>
             {
                 try
                 {
-                    var x = PSql.Select((TModel x) => x, collection).Where(x => !x.Deleted).Page(pageIndex+1, pageSize);
+                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
+                    var x = PSql.Select((TModel x) => x, table).Where(x => !x.Deleted).Page(pageIndex+1, pageSize);
                     var results = await database.Connection.QueryAsync(x);
                     return ResultContainer<IEnumerable<TModel>>.CreatePassResult(results);
                 }
@@ -142,13 +147,14 @@ namespace DataBlocks.DataAccess.Postgres
             });
         }
 
-        public IDataQuery<IPostgresDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(string collection, Expression<Func<TModel, bool>> predicate) where TModel : IModel
+        public IDataQuery<IPostgresDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(DataSchema target, Expression<Func<TModel, bool>> predicate) where TModel : IModel
         {
             return new PostgresQuery<ResultContainer<IEnumerable<TModel>>>(async (database) =>
             {
                 try
                 {
-                    var sql = PSql.Select((TModel x) => x, collection).Where(predicate.And(x => !x.Deleted));
+                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
+                    var sql = PSql.Select((TModel x) => x, table).Where(predicate.And(x => !x.Deleted));
                     var results = await database.Connection.QueryAsync(sql);
                     return ResultContainer<IEnumerable<TModel>>.CreatePassResult(results);
                 }

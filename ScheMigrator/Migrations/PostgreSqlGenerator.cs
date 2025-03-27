@@ -52,13 +52,13 @@ namespace ScheMigrator.Migrations
 
         public string GenerateCreateSchema()
         {
-            return $"CREATE SCHEMA IF NOT EXISTS {_schema};";
+            return $"CREATE SCHEMA IF NOT EXISTS \"{_schema}\";";
         }
 
         public string GenerateCreateTempTable()
         {
             return $"""
-                CREATE TEMP TABLE IF NOT EXISTS {_tempTableName} AS
+                CREATE TEMP TABLE IF NOT EXISTS "{_tempTableName}" AS
                 SELECT column_name, data_type, is_nullable
                 FROM information_schema.columns 
                 WHERE table_schema = '{_schema}' 
@@ -69,12 +69,12 @@ namespace ScheMigrator.Migrations
         public string GenerateCreateTable(IEnumerable<ColumnInfo> columns)
         {
             var columnDefinitions = columns.Select(c =>
-                $"            {c.Name} {MapCSharpType(c.PropertyType)}" +
+                $"            \"{c.Name}\" {MapCSharpType(c.PropertyType)}" +
                 $"{(c.IsPrimaryKey ? " PRIMARY KEY" : "")}" +
                 $"{(!c.IsNullable ? " NOT NULL" : "")}");
 
             return $"""
-                CREATE TABLE IF NOT EXISTS {_schema}.{_tableName} (
+                CREATE TABLE IF NOT EXISTS "{_schema}"."{_tableName}" (
                     {string.Join(",\n", columnDefinitions)}
                     );
                 """;
@@ -83,8 +83,8 @@ namespace ScheMigrator.Migrations
         public string GenerateAddColumn(ColumnInfo column)
         {
             return $"""
-                ALTER TABLE {_schema}.{_tableName}
-                    ADD COLUMN IF NOT EXISTS {column.Name} {MapCSharpType(column.PropertyType)}{(!column.IsNullable ? " NOT NULL" : "")};
+                ALTER TABLE "{_schema}"."{_tableName}"
+                    ADD COLUMN IF NOT EXISTS "{column.Name}" {MapCSharpType(column.PropertyType)}{(!column.IsNullable ? " NOT NULL" : "")};
                 """;
         }
 
@@ -92,16 +92,16 @@ namespace ScheMigrator.Migrations
         {
             return $"""
                 IF EXISTS (
-                    SELECT 1 FROM {_tempTableName}
+                    SELECT 1 FROM "{_tempTableName}"
                     WHERE column_name = '{column.Name}'
                     AND (
                         data_type != '{MapCSharpType(column.PropertyType).ToLower()}'
                         OR is_nullable != '{(column.IsNullable ? "YES" : "NO")}'
                     )
                 ) THEN
-                    ALTER TABLE {_schema}.{_tableName}
-                    ALTER COLUMN {column.Name} TYPE {MapCSharpType(column.PropertyType)} USING {column.Name}::{MapCSharpType(column.PropertyType)},
-                    ALTER COLUMN {column.Name} {(column.IsNullable ? "DROP NOT NULL" : "SET NOT NULL")};
+                    ALTER TABLE "{_schema}"."{_tableName}"
+                    ALTER COLUMN "{column.Name}" TYPE {MapCSharpType(column.PropertyType)} USING "{column.Name}"::{MapCSharpType(column.PropertyType)},
+                    ALTER COLUMN "{column.Name}" {(column.IsNullable ? "DROP NOT NULL" : "SET NOT NULL")};
                 END IF;
                 """;
         }
@@ -112,7 +112,7 @@ namespace ScheMigrator.Migrations
 
             sb.AppendLine($"""
                        FOR _col IN (
-                           SELECT column_name FROM {_tempTableName}
+                           SELECT column_name FROM "{_tempTableName}"
                            WHERE column_name NOT IN ({string.Join(", ", validColumns.Select(c => $"'{c.Name}'"))})
                        )
                        LOOP
@@ -125,7 +125,7 @@ namespace ScheMigrator.Migrations
 
         public string GenerateCleanup()
         {
-            return $"DROP TABLE IF EXISTS {_tempTableName};";
+            return $"DROP TABLE IF EXISTS \"{_tempTableName}\";";
         }
 
         public string GenerateOpenBlock()

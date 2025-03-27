@@ -134,12 +134,29 @@ namespace ExpressionToSql
         private static string GetAttributeName(System.Reflection.MemberInfo memberInfo)
         {
             var memberName = memberInfo.Name;
+            var declaringType = memberInfo.DeclaringType;
             
-            // Get the column name from ScheData attribute if available
-            var schemaDataAttr = memberInfo.GetCustomAttributes(typeof(ScheDataAttribute), true).FirstOrDefault() as ScheDataAttribute;
-            return schemaDataAttr != null && !string.IsNullOrEmpty(schemaDataAttr.Name) 
-                ? schemaDataAttr.Name 
-                : memberName;
+            // Get the actual type being used in the query (T from Where<T,R>)
+            var actualType = typeof(T);
+            
+            // If we have an expression, try to get the property from the actual type
+            
+            var property = actualType.GetProperty(memberName);
+            if (property != null)
+            {
+                var actualAttributes = property
+                    .GetCustomAttributes(true)
+                    .Where(a => a is ScheDataAttribute)
+                    .Select(a => a as ScheDataAttribute)
+                    .FirstOrDefault();
+                    
+                if (actualAttributes != null && !string.IsNullOrEmpty(actualAttributes.FieldName))
+                {
+                    return actualAttributes.FieldName;
+                }
+            }
+            
+            throw new Exception($"ScheData attribute not found for member {memberName} on type {actualType.FullName}");
         }
 
         private class Clause

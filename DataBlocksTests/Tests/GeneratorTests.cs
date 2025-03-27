@@ -23,7 +23,7 @@ public class GeneratorTests
     [Test]
     public void ShouldGeneratePostgreSqlUser()
     {
-        var ddl = ScheModelGenerator.GenerateModelDDL<ApplicationUser>(SqlImplementation.PostgreSQL, "users");
+        var ddl = ScheModelGenerator.GenerateModelDDL<ApplicationUser>(SqlImplementation.PostgreSQL, "test-schema");
         Console.Write(ddl);
         Assert.Pass();
     }
@@ -41,7 +41,7 @@ public class GeneratorTests
         var type = context.LoadFromAssemblyPath(typeof(ApplicationUser).Assembly.Location)
             .GetType(typeof(ApplicationUser).FullName!)!;
 
-        string ddl = ScheModelGenerator.GenerateModelDDL(type, SqlImplementation.PostgreSQL, "users");
+        string ddl = ScheModelGenerator.GenerateModelDDL(type, SqlImplementation.PostgreSQL, "test-schema");
         Console.Write(ddl);
         Assert.Pass();
     }

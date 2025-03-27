@@ -26,7 +26,7 @@ namespace DataBlocks.DataAdapters
             var modelResults = new ResultContainer<TModel>();
             try
             {
-                modelResults = await DataAccess.ExecQueryOne(QueryBuilder.BuildRetrieveById<TModel>(Schema.CollectionName, id));
+                modelResults = await DataAccess.ExecQueryOne(QueryBuilder.BuildRetrieveById<TModel>(Schema, id));
                 return modelResults;
             }
             catch (Exception ex) 
@@ -40,7 +40,7 @@ namespace DataBlocks.DataAdapters
             var modelResults = new ResultContainer<IEnumerable<TModel>>();
             try
             {
-                modelResults = await DataAccess.ExecQuery(QueryBuilder.BuildRetrieve<TModel>(Schema.CollectionName, pageIndex, pageSize));
+                modelResults = await DataAccess.ExecQuery(QueryBuilder.BuildRetrieve<TModel>(Schema, pageIndex, pageSize));
                 return modelResults;
             }
             catch (Exception ex) 
@@ -54,7 +54,7 @@ namespace DataBlocks.DataAdapters
             var modelResults = new ResultContainer<IEnumerable<TModel>>();
             try
             {
-                modelResults = await DataAccess.ExecQuery(QueryBuilder.BuildRetrieve(Schema.CollectionName, predicate));
+                modelResults = await DataAccess.ExecQuery(QueryBuilder.BuildRetrieve(Schema, predicate));
                 return modelResults;
             }
             catch (Exception ex) 
@@ -65,16 +65,15 @@ namespace DataBlocks.DataAdapters
 
         public async Task<Result> Delete(TModel model)
         {
-            return await DataAccess.ExecNonQuery(QueryBuilder.BuildDelete(Schema.CollectionName, model));
+            return await DataAccess.ExecNonQuery(QueryBuilder.BuildDelete(Schema, model));
         }
-
 
         public async Task<Result> Insert(TModel model)
         {
             try
             {
                 Model.PrepareForInsert(model);
-                await DataAccess.ExecNonQuery(QueryBuilder.BuildInsert(Schema.CollectionName, model));
+                await DataAccess.ExecNonQuery(QueryBuilder.BuildInsert(Schema, model));
             }
             catch (Exception e) { return Result.CreateFailResult($"Database error: {e.Message}"); }
             return Result.CreatePassResult();
@@ -84,18 +83,15 @@ namespace DataBlocks.DataAdapters
         {
             throw new NotImplementedException();
         }
-
         
         public async Task<Result> Update(TModel model)
         {
             try
             {
-                await DataAccess.ExecNonQuery(QueryBuilder.BuildReplace(Schema.CollectionName, model));
+                await DataAccess.ExecNonQuery(QueryBuilder.BuildReplace(Schema, model));
             }
             catch (Exception e) { return Result.CreateFailResult($"Database error: {e.Message}"); }
             return Result.CreatePassResult();
         }
-
-        
     }
 }

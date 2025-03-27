@@ -6,18 +6,18 @@ namespace ScheMigrator.Migrations
     [AttributeUsage(AttributeTargets.Property, Inherited = true)]
     public class ScheDataAttribute : Attribute
     {
-        public string Name { get; }
+        public string FieldName { get; }
         public bool IsNullable { get; } = false;
         public bool IsPrimaryKey { get; protected set; } = false;
 
         public ScheDataAttribute(string name)
         {
-            Name = name;
+            FieldName = name;
         }
 
         public ScheDataAttribute(string name, bool isNullable)
         {
-            Name = name;
+            FieldName = name;
             IsNullable = isNullable;
         }
     }

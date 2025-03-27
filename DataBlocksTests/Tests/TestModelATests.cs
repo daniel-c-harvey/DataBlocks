@@ -14,7 +14,7 @@ using NetBlocks.Models.Environment;
 namespace DataBlocksTests.Tests
 {
     [TestFixture]
-    public static class DatabaseModelTests
+    public static class TestModelATests
     {
         private const int MODEL_COUNT = 5;
         private static IList<TestModelA> models = new List<TestModelA>() 
@@ -52,7 +52,7 @@ namespace DataBlocksTests.Tests
         private static IEnumerable AdapterTestCases()
         {
             // yield return new TestCaseData(new Lazy<IDataAdapter<TestModelA>>(() => mAdapter)).SetName("MongoDB");
-            yield return new TestCaseData(new Lazy<IDataAdapter<TestModelA>>(() => pAdapter)).SetName("Postgres");
+            yield return new TestCaseData(new Lazy<IDataAdapter<TestModelA>>(() => pAdapter)).SetName("PostgreSQL");
         }
 
         [SetUp]

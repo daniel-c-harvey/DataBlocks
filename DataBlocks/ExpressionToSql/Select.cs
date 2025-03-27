@@ -112,9 +112,9 @@ namespace ExpressionToSql
             if (m.Member.DeclaringType.IsAssignableFrom(t))
             {
                 var schemaDataAttr = m.Member.GetCustomAttributes(typeof(ScheDataAttribute), true).FirstOrDefault() as ScheDataAttribute;
-                if (schemaDataAttr != null && !string.IsNullOrEmpty(schemaDataAttr.Name))
+                if (schemaDataAttr != null && !string.IsNullOrEmpty(schemaDataAttr.FieldName))
                 {
-                    qb.AddAttribute(schemaDataAttr.Name, m.Member.Name);
+                    qb.AddAttribute(schemaDataAttr.FieldName, m.Member.Name);
                     return;
                 }
                 qb.AddAttribute(m.Member.Name);

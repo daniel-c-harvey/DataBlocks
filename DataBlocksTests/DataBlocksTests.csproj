@@ -42,8 +42,9 @@
   <Target Name="PrepareDDLGenerator" AfterTargets="Build">
     <PropertyGroup>
       <DependencyPaths>$(NuGetPackageRoot)microsoft.extensions.identity.stores\9.0.3\lib\net9.0\Microsoft.Extensions.Identity.Stores.dll</DependencyPaths>
+      <OutPath>$(ProjectDir)Migrations</OutPath>
     </PropertyGroup>
-    <MSBuild Projects="../ScheMigrator/DDLGenerator.targets" Targets="GenerateDDL" Properties="TargetAssemblyPaths=$(TargetPath);DependencyPaths=$(DependencyPaths);OutPath=Migrations;Implementation=PostgreSQL;Schema=users"/>
+    <MSBuild Projects="../ScheMigrator/DDLGenerator.targets" Targets="GenerateDDL" Properties="TargetAssemblyPaths=$(TargetPath);DependencyPaths=$(DependencyPaths);OutPath=$(OutPath);Implementation=PostgreSQL;Schema=test-schema"/>
   </Target>
   
 

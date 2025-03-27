@@ -7,14 +7,13 @@
 
   <Target Name="GenerateDDL" AfterTargets="Build">
     <PropertyGroup>
-      <DDLGeneratorArgs>-a "$(TargetAssemblyPaths)" -d "$(DependencyPaths)" -s "$(ScheMigratorAssemblyPath)" -o "$(ProjectDir)$(OutPath)" -i "$(Implementation)"</DDLGeneratorArgs>
+      <DDLGeneratorArgs>-a "$(TargetAssemblyPaths)" -d "$(DependencyPaths)" -s "$(ScheMigratorAssemblyPath)" -o "$(OutPath)" -i "$(Implementation)"</DDLGeneratorArgs>
       <DDLGeneratorArgs Condition="'$(Schema)' != ''">$(DDLGeneratorArgs) --schema "$(Schema)"</DDLGeneratorArgs>
       <DDLGeneratorArgs Condition="'$(Verbose)' == 'true'">$(DDLGeneratorArgs) -v</DDLGeneratorArgs>
     </PropertyGroup>
 
     <Exec Command="&quot;$(DDLGeneratorExePath)&quot; $(DDLGeneratorArgs)" 
-          WorkingDirectory="$(MSBuildProjectDirectory)"
-          ConsoleToMSBuild="true">
+          WorkingDirectory="$(MSBuildProjectDirectory)">
       <Output TaskParameter="ConsoleOutput" PropertyName="DDLGeneratorOutput" />
     </Exec>
 

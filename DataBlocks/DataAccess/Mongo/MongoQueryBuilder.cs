@@ -7,14 +7,14 @@ namespace DataBlocks.DataAccess.Mongo
 {
     public class MongoQueryBuilder : IQueryBuilder<IMongoDatabase>
     {
-        public IDataQuery<IMongoDatabase, ResultContainer<TModel>> BuildRetrieveById<TModel>(string collection, long id) where TModel : IModel
+        public IDataQuery<IMongoDatabase, ResultContainer<TModel>> BuildRetrieveById<TModel>(DataSchema target, long id) where TModel : IModel
         {
             return new MongoQuery<ResultContainer<TModel>>(async (database) =>
             {
                 var modelResults = new ResultContainer<TModel>();
                 try
                 {
-                    modelResults.Value = database.GetCollection<MongoObject<TModel>>(collection)
+                    modelResults.Value = database.GetCollection<MongoObject<TModel>>(target.GetCollectionName())
                     .Find(m => m.Document.ID == id) 
                     .ToEnumerable()
                     .Select(m => m.Document)
@@ -28,14 +28,14 @@ namespace DataBlocks.DataAccess.Mongo
             });
         }
         
-        public IDataQuery<IMongoDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(string collection, int pageIndex, int pageSize) where TModel : IModel
+        public IDataQuery<IMongoDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(DataSchema target, int pageIndex, int pageSize) where TModel : IModel
         {
             return new MongoQuery<ResultContainer<IEnumerable<TModel>>>(async (database) =>
             {
                 var modelResults = new ResultContainer<IEnumerable<TModel>>();
                 try
                 {
-                    modelResults.Value = database.GetCollection<MongoObject<TModel>>(collection)
+                    modelResults.Value = database.GetCollection<MongoObject<TModel>>(target.GetCollectionName())
                     .Find(_ => true)
                     .Skip(pageIndex * pageSize)
                     .Limit(pageSize)
@@ -51,15 +51,14 @@ namespace DataBlocks.DataAccess.Mongo
             });
         }
 
-        public IDataQuery<IMongoDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(string collection, Expression<Func<TModel, bool>> predicate) where TModel : IModel
+        public IDataQuery<IMongoDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(DataSchema target, Expression<Func<TModel, bool>> predicate) where TModel : IModel
         {
             return new MongoQuery<ResultContainer<IEnumerable<TModel>>>(async (database) =>
             {
                 var modelResults = new ResultContainer<IEnumerable<TModel>>();
                 try
                 {
-                    
-                    modelResults.Value = database.GetCollection<MongoObject<TModel>>(collection)
+                    modelResults.Value = database.GetCollection<MongoObject<TModel>>(target.GetCollectionName())
                         .Find(MongoObjectPredicate(predicate))
                         .ToEnumerable()
                         .Select(m => m.Document)
@@ -73,24 +72,24 @@ namespace DataBlocks.DataAccess.Mongo
             });
         }
 
-        public IDataQuery<IMongoDatabase, Result> BuildInsert<TModel>(string collection, TModel value) where TModel : IModel
+        public IDataQuery<IMongoDatabase, Result> BuildInsert<TModel>(DataSchema target, TModel value) where TModel : IModel
         {
             return new MongoQuery<Result>(async (database) =>
             {
-                database.GetCollection<MongoObject<TModel>>(collection)
+                database.GetCollection<MongoObject<TModel>>(target.GetCollectionName())
                     .InsertOne(new MongoObject<TModel>() { Document = value});
 
                 return Result.CreatePassResult();
             });
         }
 
-        public IDataQuery<IMongoDatabase, Result> BuildReplace<TModel>(string collection, TModel value) where TModel : IModel
+        public IDataQuery<IMongoDatabase, Result> BuildReplace<TModel>(DataSchema target, TModel value) where TModel : IModel
         {
             return new MongoQuery<Result>(async database =>
             {
                 var filter = Builders<MongoObject<TModel>>.Filter.Eq(m => m.Document.ID, value.ID);
 
-                var result = database.GetCollection<MongoObject<TModel>>(collection)
+                var result = database.GetCollection<MongoObject<TModel>>(target.GetCollectionName())
                     .ReplaceOne(filter, new MongoObject<TModel>() { Document = value });
 
                 return result.IsAcknowledged
@@ -99,13 +98,13 @@ namespace DataBlocks.DataAccess.Mongo
             });
         }
 
-        public IDataQuery<IMongoDatabase, Result> BuildDelete<TModel>(string collection, TModel value) where TModel : IModel
+        public IDataQuery<IMongoDatabase, Result> BuildDelete<TModel>(DataSchema target, TModel value) where TModel : IModel
         {
             return new MongoQuery<Result>(async database =>
             {
                 try
                 {
-                    var result = database.GetCollection<MongoObject<TModel>>(collection)
+                    var result = database.GetCollection<MongoObject<TModel>>(target.GetCollectionName())
                         .DeleteOne(model => model.Document.ID == value.ID);
                     
                     return result.IsAcknowledged

@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -86,10 +85,16 @@ namespace ScheMigrator.Migrations
                     var isAttrNullable = (bool?)attrType.GetProperty(nameof(ScheDataAttribute.IsNullable))?.GetValue(x.Attribute) ?? true;
                     var isTypeNullable = x.Property.PropertyType.IsGenericType && x.Property.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>);
 
+                    // Get the name from constructor arguments
+                    var name = x.Attribute.ConstructorArguments.FirstOrDefault().Value as string;
+                    if (string.IsNullOrEmpty(name))
+                    {
+                        name = x.Property.Name.ToLower();
+                    }
+
                     return new ColumnInfo
                     {
-                        Name = (attrType.GetProperty("Name")?.GetValue(x.Attribute) as string)
-                            ?? x.Property.Name.ToLower(),
+                        Name = name,
                         PropertyType = x.Property.PropertyType,
                         IsPrimaryKey = (bool?)attrType.GetProperty(nameof(ScheDataAttribute.IsPrimaryKey))?.GetValue(x.Attribute) ?? false,
                         IsNullable = isAttrNullable || isTypeNullable

@@ -53,6 +53,11 @@ namespace DataBlocks.DataAccess.Postgres
             });
         }
 
+        private class MaximumID<TKey>
+        {
+            public TKey MaxID { get; set; }
+        }
+        
         public IDataQuery<IPostgresDatabase, Result> BuildInsert<TModel>(DataSchema target, TModel value) where TModel : IModel
         {
             return new PostgresQuery<Result>(async (database) =>
@@ -72,6 +77,19 @@ namespace DataBlocks.DataAccess.Postgres
                     var paramNames = string.Join(", ", properties.Select(p => "@" + p.Property.Name));
 
                     var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
+
+                    if (value.ID == 0)
+                    {
+                        var id = properties.FirstOrDefault(p => p.Property.Name == nameof(value.ID))?.ScheData?.FieldName ?? throw new Exception("ID not found");
+                        var idQuery =
+                            $"""
+                             SELECT COALESCE(MAX({id}),0) AS MaxID
+                             FROM {_dialect.FormatSchemaName(table.Schema)}.{_dialect.EscapeIdentifier(table.Name)}
+                             """;
+                        var idResult = await database.Connection.QuerySingleAsync<MaximumID<long>>(idQuery);
+                        value.ID = idResult.MaxID + 1;
+                    }
+                    
                     var sql = $"INSERT INTO {_dialect.FormatSchemaName(table.Schema)}.{_dialect.EscapeIdentifier(table.Name)} ({columnNames}) VALUES ({paramNames})";
 
                     await database.Connection.ExecuteAsync(sql, value);

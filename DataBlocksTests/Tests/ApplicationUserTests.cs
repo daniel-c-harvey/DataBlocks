@@ -19,11 +19,11 @@ namespace DataBlocksTests.Tests
         private const int MODEL_COUNT = 5;
         private static IList<ApplicationUser> models = new List<ApplicationUser>()
         {
-            new() { ID = 1, UserName = "Phil", NormalizedUserName = "phil", Email = "phil@example.com", EmailConfirmed = true, PasswordHash = "password", PhoneNumber = "1234567890", Created = DateTime.Now },
-            new() { ID = 2, UserName = "John", NormalizedUserName = "john", Email = "john@example.com", EmailConfirmed = true, PasswordHash = "password", PhoneNumber = "1234567890", Created = DateTime.Now },
-            new() { ID = 3, UserName = "Jane", NormalizedUserName = "jane", Email = "jane@example.com", EmailConfirmed = true, PasswordHash = "password", PhoneNumber = "1234567890", Created = DateTime.Now },
-            new() { ID = 4, UserName = "Jim", NormalizedUserName = "jim", Email = "jim@example.com", EmailConfirmed = true, PasswordHash = "password", PhoneNumber = "1234567890", Created = DateTime.Now },
-            new() { ID = 5, UserName = "Jill", NormalizedUserName = "jill", Email = "jill@example.com", EmailConfirmed = true, PasswordHash = "password", PhoneNumber = "1234567890", Created = DateTime.Now },
+            new() { UserName = "Phil", NormalizedUserName = "phil", Email = "phil@example.com", EmailConfirmed = true, PasswordHash = "password", PhoneNumber = "1234567890", Created = DateTime.Now },
+            new() { UserName = "John", NormalizedUserName = "john", Email = "john@example.com", EmailConfirmed = true, PasswordHash = "password", PhoneNumber = "1234567890", Created = DateTime.Now },
+            new() { UserName = "Jane", NormalizedUserName = "jane", Email = "jane@example.com", EmailConfirmed = true, PasswordHash = "password", PhoneNumber = "1234567890", Created = DateTime.Now },
+            new() { UserName = "Jim", NormalizedUserName = "jim", Email = "jim@example.com", EmailConfirmed = true, PasswordHash = "password", PhoneNumber = "1234567890", Created = DateTime.Now },
+            new() { UserName = "Jill", NormalizedUserName = "jill", Email = "jill@example.com", EmailConfirmed = true, PasswordHash = "password", PhoneNumber = "1234567890", Created = DateTime.Now },
         };
 
         private static IDataAdapter<ApplicationUser> pAdapter;
@@ -45,8 +45,6 @@ namespace DataBlocksTests.Tests
                     yield return new TestCaseData(adapter.Key, index).SetName(adapter.Value);
                 }
             }
-            // yield return new TestCaseData(new Lazy<IDataAdapter<ApplicationUser>>(() => mAdapter)).SetName("MongoDB");
-            // yield return new TestCaseData(new Lazy<IDataAdapter<ApplicationUser>>(() => pAdapter)).SetName("PostgreSQL");
         }
 
         private static IEnumerable AdapterTestCases()
@@ -94,6 +92,9 @@ namespace DataBlocksTests.Tests
             {
                 var insert = await adapter.Value.Insert(model);
                 Assert.That(insert.Success, Is.True);
+                var newModel = await adapter.Value.GetPage(0, 5);
+                models = newModel?.Value?.ToList() ?? [];
+
             }
         }
 

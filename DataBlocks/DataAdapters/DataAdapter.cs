@@ -26,7 +26,7 @@ namespace DataBlocks.DataAdapters
             var modelResults = new ResultContainer<TModel>();
             try
             {
-                modelResults = await DataAccess.ExecQueryOne(QueryBuilder.BuildRetrieveById<TModel>(Schema, id));
+                modelResults = await DataAccess.ExecQueryOne(QueryBuilder.BuildRetrieve<TModel>(Schema, id));
                 return modelResults;
             }
             catch (Exception ex) 
@@ -35,6 +35,34 @@ namespace DataBlocks.DataAdapters
             }
         }
 
+        public async Task<ResultContainer<IEnumerable<TModel>>> GetAll()
+        {
+            var modelResults = new ResultContainer<IEnumerable<TModel>>();
+            try
+            {
+                modelResults = await DataAccess.ExecQuery(QueryBuilder.BuildRetrieve<TModel>(Schema));
+                return modelResults;
+            }
+            catch (Exception ex) 
+            {
+                return modelResults.Fail(ex.Message);
+            }
+        }
+
+        public async Task<ResultContainer<IEnumerable<TModel>>> GetWhereIn<TKey>(Expression<Func<TModel, TKey>> keySelector, IList<TKey> keys)
+        {
+            var modelResults = new ResultContainer<IEnumerable<TModel>>();
+            try
+            {
+                modelResults = await DataAccess.ExecQuery(QueryBuilder.BuildRetrieve(Schema, keySelector, keys));
+                return modelResults;
+            }
+            catch (Exception ex) 
+            {
+                return modelResults.Fail(ex.Message);
+            }
+        }
+        
         public async Task<ResultContainer<IEnumerable<TModel>>> GetPage(int pageIndex, int pageSize)
         {
             var modelResults = new ResultContainer<IEnumerable<TModel>>();

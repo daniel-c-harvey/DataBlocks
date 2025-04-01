@@ -6,8 +6,10 @@ namespace DataBlocks.DataAdapters
 {
     public interface IDataAdapter<TModel> where TModel : IModel
     {
+        Task<ResultContainer<IEnumerable<TModel>>> GetAll();
         Task<ResultContainer<IEnumerable<TModel>>> GetPage(int page, int pageSize);
         Task<ResultContainer<TModel>> GetByID(long id);
+        Task<ResultContainer<IEnumerable<TModel>>> GetWhereIn<TKey>(Expression<Func<TModel, TKey>> keySelector, IList<TKey> keys);
         Task<ResultContainer<IEnumerable<TModel>>> GetByPredicate(Expression<Func<TModel, bool>> predicate);
         Task<Result> Insert(TModel model);
         Task<Result> Insert(IEnumerable<TModel> models);

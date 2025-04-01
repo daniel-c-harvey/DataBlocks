@@ -7,7 +7,7 @@ namespace DataBlocks.DataAccess.Mongo
 {
     public class MongoQueryBuilder : IQueryBuilder<IMongoDatabase>
     {
-        public IDataQuery<IMongoDatabase, ResultContainer<TModel>> BuildRetrieveById<TModel>(DataSchema target, long id) where TModel : IModel
+        public IDataQuery<IMongoDatabase, ResultContainer<TModel>> BuildRetrieve<TModel>(DataSchema target, long id) where TModel : IModel
         {
             return new MongoQuery<ResultContainer<TModel>>(async (database) =>
             {
@@ -27,7 +27,17 @@ namespace DataBlocks.DataAccess.Mongo
                 return modelResults;
             });
         }
-        
+
+        public IDataQuery<IMongoDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel, TKey>(DataSchema target, Expression<Func<TModel, TKey>> keySelector, IList<TKey> keys) where TModel : IModel
+        {
+            throw new NotImplementedException();
+        }
+
+        public IDataQuery<IMongoDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(DataSchema target) where TModel : IModel
+        {
+            throw new NotImplementedException();
+        }
+
         public IDataQuery<IMongoDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(DataSchema target, int pageIndex, int pageSize) where TModel : IModel
         {
             return new MongoQuery<ResultContainer<IEnumerable<TModel>>>(async (database) =>

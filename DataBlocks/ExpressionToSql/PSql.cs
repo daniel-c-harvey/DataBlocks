@@ -40,4 +40,14 @@ namespace ExpressionToSql
             return new Limit<T, R>(selector, take, table, new PostgreSqlDialect());
         }
     }
+
+    public static class QUtil
+    {
+        public static bool IsIn<T, R>(Expression<Func<T, R>> selector, string paramName)
+        {
+            // this method is used in the SQL Expression builder to provide a clean way of offering an agnostic IN clause to the DataAdapters
+            // it should never actually be called, and is instead just used for metaprogramming
+            throw new NotImplementedException();
+        }
+    }
 } 

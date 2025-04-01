@@ -12,7 +12,7 @@ namespace DataBlocks.DataAccess.Postgres
     {
         private readonly PostgreSqlDialect _dialect = new PostgreSqlDialect();
 
-        public IDataQuery<IPostgresDatabase, ResultContainer<TModel>> BuildRetrieveById<TModel>(DataSchema target, long id) where TModel : IModel
+        public IDataQuery<IPostgresDatabase, ResultContainer<TModel>> BuildRetrieve<TModel>(DataSchema target, long id) where TModel : IModel
         {
             return new PostgresQuery<ResultContainer<TModel>>(async (database) =>
             {
@@ -32,6 +32,86 @@ namespace DataBlocks.DataAccess.Postgres
                     return modelResults.Fail($"Database error: {ex.Message}");
                 }
                 return modelResults;
+            });
+        }
+
+        private class KeysParameter<TKey>
+        {
+            public IList<TKey> Keys { get; set; }
+        }
+        
+        public IDataQuery<IPostgresDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel, TKey>(DataSchema target, Expression<Func<TModel, TKey>> keySelector, IList<TKey> keys) where TModel : IModel
+        {
+            return new PostgresQuery<ResultContainer<IEnumerable<TModel>>>(async (database) =>
+            {
+                try
+                {
+                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
+                    var sql = 
+                        PSql
+                            .Select((TModel x) => x, table)
+                            .Where(x => !x.Deleted && QUtil.IsIn(keySelector, nameof(KeysParameter<TKey>.Keys)));
+                    var results = await database.Connection.QueryAsync(sql, new KeysParameter<TKey> { Keys = keys });
+                    return ResultContainer<IEnumerable<TModel>>.CreatePassResult(results);
+                }
+                catch (Exception ex)
+                {
+                    return ResultContainer<IEnumerable<TModel>>.CreateFailResult($"Database error: {ex.Message}");
+                }
+            });
+        }
+
+        public IDataQuery<IPostgresDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(DataSchema target) where TModel : IModel
+        {
+            return new PostgresQuery<ResultContainer<IEnumerable<TModel>>>(async (database) =>
+            {
+                try
+                {
+                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
+                    var sql = PSql.Select((TModel x) => x, table).Where(x => !x.Deleted);
+                    var results = await database.Connection.QueryAsync(sql);
+                    return ResultContainer<IEnumerable<TModel>>.CreatePassResult(results);
+                }
+                catch (Exception ex)
+                {
+                    return ResultContainer<IEnumerable<TModel>>.CreateFailResult($"Database error: {ex.Message}");
+                }
+            });
+        }
+        
+        public IDataQuery<IPostgresDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(DataSchema target, int pageIndex, int pageSize) where TModel : IModel
+        {
+            return new PostgresQuery<ResultContainer<IEnumerable<TModel>>>(async (database) =>
+            {
+                try
+                {
+                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
+                    var x = PSql.Select((TModel x) => x, table).Where(x => !x.Deleted).Page(pageIndex+1, pageSize);
+                    var results = await database.Connection.QueryAsync(x);
+                    return ResultContainer<IEnumerable<TModel>>.CreatePassResult(results);
+                }
+                catch (Exception ex)
+                {
+                    return ResultContainer<IEnumerable<TModel>>.CreateFailResult($"Database error: {ex.Message}");
+                }
+            });
+        }
+
+        public IDataQuery<IPostgresDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(DataSchema target, Expression<Func<TModel, bool>> predicate) where TModel : IModel
+        {
+            return new PostgresQuery<ResultContainer<IEnumerable<TModel>>>(async (database) =>
+            {
+                try
+                {
+                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
+                    var sql = PSql.Select((TModel x) => x, table).Where(predicate.And(x => !x.Deleted));
+                    var results = await database.Connection.QueryAsync(sql);
+                    return ResultContainer<IEnumerable<TModel>>.CreatePassResult(results);
+                }
+                catch (Exception ex)
+                {
+                    return ResultContainer<IEnumerable<TModel>>.CreateFailResult($"Database error: {ex.Message}");
+                }
             });
         }
 
@@ -144,42 +224,6 @@ namespace DataBlocks.DataAccess.Postgres
                     return result.Fail($"Database error: {ex.Message}");
                 }
                 return result;
-            });
-        }
-
-        public IDataQuery<IPostgresDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(DataSchema target, int pageIndex, int pageSize) where TModel : IModel
-        {
-            return new PostgresQuery<ResultContainer<IEnumerable<TModel>>>(async (database) =>
-            {
-                try
-                {
-                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
-                    var x = PSql.Select((TModel x) => x, table).Where(x => !x.Deleted).Page(pageIndex+1, pageSize);
-                    var results = await database.Connection.QueryAsync(x);
-                    return ResultContainer<IEnumerable<TModel>>.CreatePassResult(results);
-                }
-                catch (Exception ex)
-                {
-                    return ResultContainer<IEnumerable<TModel>>.CreateFailResult($"Database error: {ex.Message}");
-                }
-            });
-        }
-
-        public IDataQuery<IPostgresDatabase, ResultContainer<IEnumerable<TModel>>> BuildRetrieve<TModel>(DataSchema target, Expression<Func<TModel, bool>> predicate) where TModel : IModel
-        {
-            return new PostgresQuery<ResultContainer<IEnumerable<TModel>>>(async (database) =>
-            {
-                try
-                {
-                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
-                    var sql = PSql.Select((TModel x) => x, table).Where(predicate.And(x => !x.Deleted));
-                    var results = await database.Connection.QueryAsync(sql);
-                    return ResultContainer<IEnumerable<TModel>>.CreatePassResult(results);
-                }
-                catch (Exception ex)
-                {
-                    return ResultContainer<IEnumerable<TModel>>.CreateFailResult($"Database error: {ex.Message}");
-                }
             });
         }
     }

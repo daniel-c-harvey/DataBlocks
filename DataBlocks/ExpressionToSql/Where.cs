@@ -29,7 +29,7 @@ namespace ExpressionToSql
             switch (expression.NodeType)
             {
                 case ExpressionType.Not:
-                    BuildWhereUnary(qb, (UnaryExpression)expression, clause);
+                    BuildWhereNot(qb, (UnaryExpression)expression, clause);
                     break;
                 case ExpressionType.Equal:
                 case ExpressionType.NotEqual:
@@ -41,12 +41,75 @@ namespace ExpressionToSql
                 case ExpressionType.OrElse:
                     BuildWhere(qb, (BinaryExpression)expression, clause);
                     break;
+                case ExpressionType.Call:
+                    BuildWhereIn(qb, expression, clause);
+                    break;
                 default:
                     throw new NotImplementedException($"Expression type {expression.NodeType} not supported");
             }
         }
 
-        private static void BuildWhereUnary(QueryBuilder qb, UnaryExpression unaryExpression, Func<QueryBuilder, BinaryExpression, string, Clause> clause)
+        private static void BuildWhereIn(QueryBuilder qb, Expression expression, Func<QueryBuilder, BinaryExpression, string, Clause> clause)
+        {
+            var methodCall = (MethodCallExpression)expression;
+            if (methodCall.Method.DeclaringType != typeof(QUtil) || methodCall.Method.Name != nameof(QUtil.IsIn))
+            {
+                throw new NotImplementedException($"Method call to {methodCall.Method.DeclaringType?.Name}.{methodCall.Method.Name} is not supported");
+            }
+
+            var selector = methodCall.Arguments[0] as MemberExpression;
+            
+            // Extract the value from the selector's Member
+            object? selectorValue = null;
+            if (selector != null)
+            {
+                selectorValue = Expression.Lambda(selector).Compile().DynamicInvoke();
+            }
+            
+            // Extract the member from the inner expression
+            System.Reflection.MemberInfo? innerMember = null;
+            if (selectorValue is Expression innerExpression)
+            {
+                if (innerExpression is MemberExpression memberExpression)
+                {
+                    innerMember = memberExpression.Member;
+                }
+                else if (innerExpression is LambdaExpression lambdaExpression && lambdaExpression.Body is MemberExpression lambdaMemberExpression)
+                {
+                    innerMember = lambdaMemberExpression.Member;
+                }
+            }
+            
+            // Extract the parameter name from the second argument of the IsIn method call
+            string? paramName = null;
+            if (methodCall.Arguments.Count > 1)
+            {
+                switch (methodCall.Arguments[1])
+                {
+                    // The second argument should be a constant expression containing the parameter name
+                    case ConstantExpression constantExpression:
+                        paramName = constantExpression.Value as string;
+                        break;
+                    case MemberExpression memberExpression:
+                    {
+                        paramName = Expression.Lambda(memberExpression).Compile().DynamicInvoke() as string;
+                        break;
+                    }
+                }
+            }
+
+            if (selector == null || innerMember == null || paramName == null)
+            {
+                throw new InvalidOperationException("Invalid IsIn call");
+            }
+            
+            var attributeName = GetAttributeName(innerMember);
+            
+            qb.AppendInClause(attributeName, paramName);
+
+        }
+
+        private static void BuildWhereNot(QueryBuilder qb, UnaryExpression unaryExpression, Func<QueryBuilder, BinaryExpression, string, Clause> clause)
         {
             if (unaryExpression.NodeType != ExpressionType.Not)
                 throw new NotImplementedException($"Unary expression type {unaryExpression.NodeType} not supported");

@@ -137,6 +137,13 @@ namespace ExpressionToSql
             return this;
         }
 
+        
+        public QueryBuilder AppendInClause(string attributeName, string paramName)
+        {
+            _sb.Append($" {attributeName} = ANY({_dialect.FormatParameter(paramName)})");
+            return this;
+        }
+
         public QueryBuilder AddCondition(string op, string attributeName, string parameterName, object value, string aliasName = TableAliasName)
         {
             AppendAndCondition(op, attributeName, aliasName);
@@ -164,6 +171,7 @@ namespace ExpressionToSql
             AddValue(value);
             return this;
         }
+
 
         private void AppendAndCondition(string op, string attributeName, string aliasName)
         {

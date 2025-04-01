@@ -92,10 +92,14 @@ namespace DataBlocksTests.Tests
             {
                 var insert = await adapter.Value.Insert(model);
                 Assert.That(insert.Success, Is.True);
-                var newModel = await adapter.Value.GetPage(0, 5);
-                models = newModel?.Value?.ToList() ?? [];
-
             }
+            
+            var newModels = (await adapter.Value.GetAll())?.Value?.ToList();
+            Assert.That(newModels, Is.Not.Null);
+            Assert.That(newModels.Count, Is.EqualTo(models.Count));
+            
+            
+            models = newModels ?? [];
         }
 
         [Test, Order(2)]
@@ -160,6 +164,14 @@ namespace DataBlocksTests.Tests
         }
 
         [Test, Order(6)]
+        [TestCaseSource(nameof(AdapterTestCases))]
+        public static async Task SelectByIDs(Lazy<IDataAdapter<ApplicationUser>> adapter)
+        {
+            var ids = models.Select(user => user.ID).ToList();
+            var result = await adapter.Value.GetWhereIn(user => user.ID, ids);
+        }
+
+        [Test, Order(7)]
         [TestCaseSource(nameof(AdapterTestCases))]
         public static async Task DeleteAll(Lazy<IDataAdapter<ApplicationUser>> dataAdapter)
         {

@@ -34,7 +34,8 @@ public class GeneratorTests
         var paths = new List<string>(Directory.GetFiles(RuntimeEnvironment.GetRuntimeDirectory(), "*.dll"))
         {
             Path.Combine(AppContext.BaseDirectory, "Microsoft.Extensions.Identity.Stores.dll"),
-            Path.Combine(AppContext.BaseDirectory, "ScheMigrator.dll")
+            Path.Combine(AppContext.BaseDirectory, "ScheMigrator.dll"),
+            Path.Combine(AppContext.BaseDirectory, "DataBlocks.dll")
         };
         var resolver = new System.Reflection.PathAssemblyResolver(paths);
         var context = new System.Reflection.MetadataLoadContext(resolver);

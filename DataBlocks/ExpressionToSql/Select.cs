@@ -1,4 +1,5 @@
 using System.Reflection;
+using DataBlocks.DataAccess;
 
 namespace ExpressionToSql
 {
@@ -7,6 +8,8 @@ namespace ExpressionToSql
     using System.Collections.Generic;
     using System.Linq;
     using System.Linq.Expressions;
+    using ExpressionToSql.Utils;
+    using DataBlocks.ExpressionToSql.Expressions;
 
     public class Select<T, R> : Query
     {
@@ -20,11 +23,31 @@ namespace ExpressionToSql
             _select = select;
             _take = take;
             _table = table;
+            
+            // Register the primary entity type
+            RegisterEntityType(QueryBuilder.TableAliasName, typeof(T));
         }
 
         public Where<T, R> Where(Expression<Func<T, bool>> predicate)
         {
             return new Where<T, R>(this, predicate);
+        }
+
+        public Join<T, T2, R> Join<T2>(DataSchema schema, Expression<Func<T, T2, bool>> joinCondition, JoinType joinType = JoinType.Inner)
+        {
+            var rightTable = new Table<T2> { Name = schema.CollectionName, Schema = schema.SchemaName };
+            return new Join<T, T2, R>(this, rightTable, joinCondition, joinType);
+        }
+
+        public Join<T, T2, R> Join<T2>(Table rightTable, Expression<Func<T, T2, bool>> joinCondition, JoinType joinType = JoinType.Inner)
+        {
+            return new Join<T, T2, R>(this, rightTable, joinCondition, joinType);
+        }
+        
+        public Join<T, T2, R> Join<T2>(string rightTableName, Expression<Func<T, T2, bool>> joinCondition, JoinType joinType = JoinType.Inner)
+        {
+            var rightTable = new Table<T2> { Name = rightTableName };
+            return Join<T2>(rightTable, joinCondition, joinType);
         }
 
         public Limit<T, R> Limit(int count)
@@ -56,73 +79,13 @@ namespace ExpressionToSql
 
             var type = _select.Parameters[0].Type;
 
-            var expressions = GetExpressions(type, _select.Body);
+            var expressions = SelectExpressions.GetExpressions(type, _select.Body);
 
-            AddExpressions(expressions, type, qb);
+            SelectExpressions.AddExpressions(expressions, type, qb);
 
             qb.AddTable(_table);
 
             return qb;
-        }
-
-        private static IEnumerable<Expression> GetExpressions(Type type, Expression body)
-        {
-            switch (body.NodeType)
-            {
-                case ExpressionType.New:
-                    var n = (NewExpression) body;
-                    return n.Arguments;
-                case ExpressionType.Parameter:
-                    var propertyInfos = type.GetProperties().Where(p => p.GetCustomAttributes(typeof(ScheDataAttribute), true).Any());
-                    return propertyInfos.Select(pi => Expression.Property(body, pi));
-                default:
-                    return new[] { body };
-            }
-        }
-
-        private static void AddExpressions(IEnumerable<Expression> es, Type t, QueryBuilder qb)
-        {
-            foreach (var e in es)
-            {
-                AddExpression(e, t, qb);
-                qb.AddSeparator();
-            }
-            qb.Remove(); // Remove last comma
-        }
-
-        private static void AddExpression(Expression e, Type t, QueryBuilder qb)
-        {
-            switch (e.NodeType)
-            {
-                case ExpressionType.Constant:
-                    var c = (ConstantExpression) e;
-                    qb.AddValue(c.Value);
-                    break;
-                case ExpressionType.MemberAccess:
-                    var m = (MemberExpression) e;
-                    AddExpression(m, t, qb);
-                    break;
-                default:
-                    throw new NotImplementedException();
-            }
-        }
-
-        private static void AddExpression(MemberExpression m, Type t, QueryBuilder qb)
-        {
-            if (m.Member.DeclaringType.IsAssignableFrom(t))
-            {
-                var schemaDataAttr = m.Member.GetCustomAttributes(typeof(ScheDataAttribute), true).FirstOrDefault() as ScheDataAttribute;
-                if (schemaDataAttr != null && !string.IsNullOrEmpty(schemaDataAttr.FieldName))
-                {
-                    qb.AddAttribute(schemaDataAttr.FieldName, m.Member.Name);
-                    return;
-                }
-                qb.AddAttribute(m.Member.Name);
-            }
-            else
-            {
-                qb.AddParameter(m.Member.Name);
-            }
         }
     }
 

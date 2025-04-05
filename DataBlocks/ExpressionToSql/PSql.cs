@@ -39,6 +39,16 @@ namespace ExpressionToSql
         {
             return new Limit<T, R>(selector, take, table, new PostgreSqlDialect());
         }
+        
+        // /// <summary>
+        // /// Extension method to join with a DataSchema
+        // /// </summary>
+        // public static Join<T, T2, R> Join<T, T2, R>(this Select<T, R> select, DataSchema schema, Expression<Func<T, T2, bool>> joinCondition, JoinType joinType = JoinType.Inner)
+        // {
+        //     // Use the existing schema object
+        //     var table = new Table<T2> { Name = schema.TableName, Schema = schema.SchemaName };
+        //     return select.Join<T2>(table, joinCondition, joinType);
+        // }
     }
 
     public static class QUtil

@@ -8,9 +8,13 @@ public class PostgresDatabase : IPostgresDatabase
 
     public string DatabaseName { get; private init; }
 
+    public string ConnectionString { get; private init; }
+
     public PostgresDatabase(string connectionString, string databaseName)
     {
         Connection = new NpgsqlConnection(connectionString);
+        Connection.Open();
         DatabaseName = databaseName;
+        ConnectionString = connectionString;
     }    
 }

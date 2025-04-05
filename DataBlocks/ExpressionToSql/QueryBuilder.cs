@@ -1,14 +1,20 @@
 namespace ExpressionToSql
 {
     using System.Text;
+    using System.Collections.Generic;
+    using System;
+    using ExpressionToSql.Utils;
 
-    internal class QueryBuilder
+    public class QueryBuilder
     {
         private readonly StringBuilder _sb;
         private readonly ISqlDialect _dialect;
-        private readonly Query _query;
+        public readonly Query _query;
         private bool _firstCondition = true;
         public const string TableAliasName = "a";
+
+        // Track current aliases
+        private Dictionary<Type, string> _tableAliases = new Dictionary<Type, string>();
 
         public QueryBuilder(StringBuilder sb, ISqlDialect dialect, Query query)
         {
@@ -138,9 +144,9 @@ namespace ExpressionToSql
         }
 
         
-        public QueryBuilder AppendInClause(string attributeName, string paramName)
+        public QueryBuilder AppendInClause(string attributeNameWithAlias, string paramName)
         {
-            _sb.Append($" {attributeName} = ANY({_dialect.FormatParameter(paramName)})");
+            _sb.Append($" {attributeNameWithAlias} = ANY({_dialect.FormatParameter(paramName)})");
             return this;
         }
 
@@ -190,14 +196,83 @@ namespace ExpressionToSql
             _sb.Append(" ").Append(op);
         }
 
-        private void AppendCondition(string condition)
+        public QueryBuilder AppendCondition(string condition)
         {
             if (_firstCondition)
             {
                 _firstCondition = false;
-                condition = "WHERE";
+                _sb.Append(" WHERE");
             }
-            _sb.Append(" ").Append(condition);
+            else
+            {
+                _sb.Append(" ").Append(condition);
+            }
+            return this;
+        }
+
+        public QueryBuilder AppendJoin(string joinType, Table table, string aliasName)
+        {
+            _sb.Append(" ").Append(joinType).Append(" ");
+
+            var schemaName = _dialect.FormatSchemaName(table.Schema);
+            if (!string.IsNullOrWhiteSpace(schemaName))
+            {
+                _sb.Append(schemaName);
+                _sb.Append(".");
+            }
+
+            _sb.Append(_dialect.EscapeIdentifier(table.Name));
+
+            if (!string.IsNullOrWhiteSpace(aliasName))
+            {
+                _sb.Append(" AS ").Append(aliasName);
+            }
+            return this;
+        }
+
+        public QueryBuilder AppendJoinCondition()
+        {
+            _sb.Append(" ON");
+            return this;
+        }
+
+        public QueryBuilder Append(string text)
+        {
+            _sb.Append(text);
+            return this;
+        }
+
+        // Get next available alias
+        public string GetNextAlias() 
+        {
+            int aliasCount = _tableAliases.Count;
+            // Generate "a", "b", "c", etc.
+            char aliasChar = (char)('a' + aliasCount);
+            return aliasChar.ToString();
+        }
+
+        // Register type-to-alias mapping
+        public void RegisterTableAlias<T>(string alias) 
+        {
+            _tableAliases[typeof(T)] = alias;
+        }
+
+        // Get alias for a type
+        public string GetAliasForType(Type type)
+        {
+            return _tableAliases.TryGetValue(type, out var alias) ? alias : TableAliasName;
+        }
+
+        // Add a method to get the condition status
+        public bool IsFirstCondition()
+        {
+            return _firstCondition;
+        }
+
+        // Add a method to reset condition status
+        public void ResetConditionState()
+        {
+            _firstCondition = true;
         }
     }
 }

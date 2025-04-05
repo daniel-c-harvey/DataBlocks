@@ -93,6 +93,11 @@ namespace DataBlocks.DataAccess.Mongo
             });
         }
 
+        public IDataQuery<IMongoDatabase, Result> BuildInsert<TModel>(DataSchema target, IEnumerable<TModel> values) where TModel : IModel
+        {
+            throw new NotImplementedException();
+        }
+
         public IDataQuery<IMongoDatabase, Result> BuildReplace<TModel>(DataSchema target, TModel value) where TModel : IModel
         {
             return new MongoQuery<Result>(async database =>

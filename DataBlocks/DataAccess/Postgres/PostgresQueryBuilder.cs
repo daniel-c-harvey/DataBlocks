@@ -5,6 +5,8 @@ using ScheMigrator.Migrations;
 using NetBlocks.Models;
 using System.Linq.Expressions;
 using NetBlocks.Utilities;
+using Npgsql;
+using NpgsqlTypes;
 
 namespace DataBlocks.DataAccess.Postgres
 {
@@ -173,6 +175,83 @@ namespace DataBlocks.DataAccess.Postgres
                     var sql = $"INSERT INTO {_dialect.FormatSchemaName(table.Schema)}.{_dialect.EscapeIdentifier(table.Name)} ({columnNames}) VALUES ({paramNames})";
 
                     await database.Connection.ExecuteAsync(sql, value);
+                    result.Pass();
+                }
+                catch (Exception ex)
+                {
+                    return result.Fail($"Database error: {ex.Message}");
+                }
+                return result;
+            });
+        }
+
+        public IDataQuery<IPostgresDatabase, Result> BuildInsert<TModel>(DataSchema target, IEnumerable<TModel> values) where TModel : IModel
+        {
+            return new PostgresQuery<Result>(async (database) =>
+            {
+                var result = new Result();
+                try
+                {
+                    var properties = typeof(TModel).GetProperties()
+                        .Select(p => new {
+                            Property = p,
+                            ScheData = p.GetCustomAttributes(typeof(ScheDataAttribute), true).FirstOrDefault() as ScheDataAttribute
+                        })
+                        .Where(x => x.ScheData != null)
+                        .ToList();
+
+                    var columnNames = string.Join(", ", properties.Select(p => _dialect.EscapeIdentifier(p.ScheData!.FieldName)));
+                    var paramNames = string.Join(", ", properties.Select(p => "@" + p.Property.Name));
+
+                    var table = new Table<TModel> { Name = target.CollectionName, Schema = target.SchemaName };
+
+                    if (values.Any(m => m.ID == 0))
+                    {
+                        var id = properties.FirstOrDefault(p => p.Property.Name == nameof(IModel.ID))?.ScheData?.FieldName ?? throw new Exception("ID not found");
+                        var idQuery =
+                            $"""
+                             SELECT COALESCE(MAX({id}),0) AS MaxID
+                             FROM {_dialect.FormatSchemaName(table.Schema)}.{_dialect.EscapeIdentifier(table.Name)}
+                             """;
+                        var idResult = await database.Connection.QuerySingleAsync<MaximumID<long>>(idQuery);
+                        
+                        var maxId = idResult.MaxID;
+                        foreach (var model in values.Where(m => m.ID == 0))
+                        {
+                            model.ID = ++maxId;
+                        }
+                    }
+                    
+                    var sql = $"INSERT INTO {_dialect.FormatSchemaName(table.Schema)}.{_dialect.EscapeIdentifier(table.Name)} ({columnNames}) VALUES ({paramNames})";
+                    var transaction = await database.Connection.BeginTransactionAsync();
+                    
+                    IList<Task> tasks = new List<Task>();
+                    foreach (var model in values)
+                    {
+                        var task = new Task(() =>
+                        {
+                            using var connection = new NpgsqlConnection(database.ConnectionString);
+                            connection.Open();
+                            connection.Execute(sql, model, transaction);
+                        });
+                        tasks.Add(task);
+                        task.Start();
+                    }
+
+                    // Wait for all tasks to complete and handle any exceptions
+                    try
+                    {
+                        // This will throw if any task fails
+                        await Task.WhenAll(tasks);
+                        await transaction.CommitAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        Console.WriteLine($"Error executing database operations: {ex.Message}");
+                        throw;
+                    }
+                    
                     result.Pass();
                 }
                 catch (Exception ex)

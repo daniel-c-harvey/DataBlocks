@@ -1,6 +1,7 @@
 ﻿using System.Linq.Expressions;
 using DataBlocks.DataAccess;
 using NetBlocks.Models;
+using NetBlocks.Utilities;
 
 namespace DataBlocks.DataAdapters
 {
@@ -101,7 +102,7 @@ namespace DataBlocks.DataAdapters
             try
             {
                 Model.PrepareForInsert(model);
-                await DataAccess.ExecNonQuery(QueryBuilder.BuildInsert(Schema, model));
+                return await DataAccess.ExecNonQuery(QueryBuilder.BuildInsert(Schema, model));
             }
             catch (Exception e) { return Result.CreateFailResult($"Database error: {e.Message}"); }
             return Result.CreatePassResult();
@@ -109,7 +110,13 @@ namespace DataBlocks.DataAdapters
 
         public async Task<Result> Insert(IEnumerable<TModel> models)
         {
-            throw new NotImplementedException();
+            try
+            {
+                models.ForEach(m => Model.PrepareForInsert(m));
+                return await DataAccess.ExecNonQuery(QueryBuilder.BuildInsert(Schema, models));
+            }
+            catch (Exception e) { return Result.CreateFailResult($"Database error: {e.Message}"); }
+            return Result.CreatePassResult();
         }
         
         public async Task<Result> Update(TModel model)

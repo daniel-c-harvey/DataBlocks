@@ -7,6 +7,8 @@ namespace DataBlocksTests.Models;
 [ScheModel]
 public class ApplicationUser : IdentityUser<long>, IModel
 {
+    public static DataSchema Schema { get; } = DataSchema.Create<ApplicationUser>("test-schema");
+
     [ScheKey("id")]
     public long ID { get; set; }
     

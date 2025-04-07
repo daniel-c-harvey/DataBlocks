@@ -6,6 +6,8 @@ namespace DataBlocksTests.Models;
 [ScheModel]
 public class UserModelALink : IModel
 {
+    public static DataSchema Schema { get; } = DataSchema.Create<UserModelALink>("test-schema");
+
     [ScheKey("id")]
     public long ID { get; set; }
     [ScheData("application_user_id")]

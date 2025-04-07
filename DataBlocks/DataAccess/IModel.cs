@@ -6,6 +6,8 @@ namespace DataBlocks.DataAccess
     
     public interface IModel<TKey>
     {
+        static abstract DataSchema Schema { get; }
+        
         [ScheKey("id")]
         TKey ID { get; set; }
         [ScheData("deleted")]

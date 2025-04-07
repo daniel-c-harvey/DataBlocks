@@ -6,6 +6,8 @@ namespace DataBlocksTests.Models;
 [ScheModel]
 public class TestModelA : IModel
 {
+    public static DataSchema Schema { get; } = DataSchema.Create<TestModelA>("test-schema");
+
     [ScheKey("id")]
     public long ID { get; set; }
     [ScheData("name")]

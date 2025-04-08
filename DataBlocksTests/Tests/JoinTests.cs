@@ -158,6 +158,11 @@ public class JoinTests
     public static async Task ShouldQueryPersonnelWithContacts()
     {
         var result = await personnelAdapterComposite.GetByID(personnel.First().ID);
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.Value, Is.Not.Null);
+        Assert.That(result.Value.ID, Is.EqualTo(personnel.First().ID));
+        Assert.That(result.Value.Contacts, Is.Not.Null);
+        Assert.That(result.Value.Contacts, Is.Not.Empty);
     }
 
     [OneTimeTearDown]

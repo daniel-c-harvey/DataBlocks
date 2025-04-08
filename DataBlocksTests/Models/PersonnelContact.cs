@@ -5,7 +5,7 @@ using ScheMigrator.Migrations;
 namespace DataBlocksTests.Models
 {
     [ScheModel]
-    public class PersonnelContact : IModel, ILinkageModel<PersonnelContact>
+    public class PersonnelContact : IModel
     {
         public static DataSchema Schema { get; } = DataSchema.Create<PersonnelContact>("test-schema");
 
@@ -32,9 +32,5 @@ namespace DataBlocksTests.Models
 
         [ScheData("modified")]
         public DateTime Modified { get; set; }
-
-        // Linkage model properties
-        [JsonIgnore]
-        public IList<long> ForeignIDs =>  [PersonnelId, ContactId];
     }
 }

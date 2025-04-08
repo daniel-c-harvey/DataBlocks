@@ -2,6 +2,7 @@ namespace ExpressionToSql
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq.Expressions;
     using System.Text;
 
     public abstract class Query
@@ -11,6 +12,9 @@ namespace ExpressionToSql
         
         // Dictionary to track entity types by alias
         protected internal Dictionary<string, Type> EntityTypes { get; } = new Dictionary<string, Type>();
+        
+        // Dictionary to track expression parameters
+        protected internal Dictionary<string, (string Name, Type Type)> ExpressionParameters { get; } = new Dictionary<string, (string, Type)>();
 
         protected Query(ISqlDialect dialect)
         {
@@ -36,6 +40,58 @@ namespace ExpressionToSql
             {
                 EntityTypes[pair.Key] = pair.Value;
             }
+            
+            // Also copy parameter registrations
+            foreach (var pair in sourceQuery.ExpressionParameters)
+            {
+                ExpressionParameters[pair.Key] = pair.Value;
+            }
+        }
+        
+        // Helper to ensure alias mappings are properly applied to a QueryBuilder
+        protected internal void ApplyEntityTypesToQueryBuilder(QueryBuilder qb)
+        {
+            foreach (var pair in EntityTypes)
+            {
+                // Register each entity type with its alias in the QueryBuilder
+                Type entityType = pair.Value;
+                string alias = pair.Key;
+                
+                qb.RegisterTableAliasForType(entityType, alias);
+            }
+        }
+        
+        // Method to register parameters from a lambda expression
+        protected internal void RegisterExpressionParameter<TDelegate>(Expression<TDelegate> expression)
+        {
+            if (expression == null) return;
+            
+            foreach (var param in expression.Parameters)
+            {
+                // Register parameter by name and type for instance tracking
+                RegisterParameter(param.Name, param.Type);
+            }
+        }
+        
+        // More direct method to register a parameter
+        protected internal void RegisterParameter(string paramName, Type paramType)
+        {
+            if (string.IsNullOrEmpty(paramName) || paramType == null) return;
+            
+            // Create a unique key for this parameter
+            string key = $"{paramName}_{paramType.FullName}";
+            
+            // Register the parameter for later lookup
+            ExpressionParameters[key] = (paramName, paramType);
+        }
+        
+        // Method to check if a parameter exists in the query context
+        protected internal bool HasExpressionParameter(string paramName, Type paramType)
+        {
+            if (string.IsNullOrEmpty(paramName)) return false;
+            
+            string key = $"{paramName}_{paramType.FullName}";
+            return ExpressionParameters.ContainsKey(key);
         }
 
         public override string ToString()

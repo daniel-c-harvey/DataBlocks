@@ -21,6 +21,9 @@ namespace ExpressionToSql
             // Copy entity types from the base query
             CopyEntityTypesFrom(baseQuery);
             
+            // Register the where expression parameter
+            RegisterExpressionParameter(where);
+            
             // _queryBuilder = new QueryBuilder(new StringBuilder(), baseQuery.Dialect, baseQuery);
             // _expressionBuilder = new ExpressionBuilder(this, _queryBuilder);
         }
@@ -29,6 +32,9 @@ namespace ExpressionToSql
         {
             // First build the base query
             _baseQuery.ToSql(qb);
+            
+            // Apply entity types to ensure aliases are properly registered
+            ApplyEntityTypesToQueryBuilder(qb);
             
             // Then apply WHERE conditions - let ExpressionBuilder handle the WHERE keyword
             new ExpressionBuilder(this, qb).WithClauseType(ClauseType.Where).BuildExpression(_where.Body, ExpressionBuilder.Clause.And);

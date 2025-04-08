@@ -26,6 +26,9 @@ namespace ExpressionToSql
             
             // Register the primary entity type
             RegisterEntityType(QueryBuilder.TableAliasName, typeof(T));
+            
+            // Register lambda parameter for context tracking
+            RegisterExpressionParameter(select);
         }
 
         public Where<T, R> Where(Expression<Func<T, bool>> predicate)
@@ -78,6 +81,9 @@ namespace ExpressionToSql
             }
 
             var type = _select.Parameters[0].Type;
+            
+            // Register the main type with the default table alias
+            qb.RegisterTableAliasForType(type, QueryBuilder.TableAliasName);
 
             var expressions = SelectExpressions.GetExpressions(type, _select.Body);
 

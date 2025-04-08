@@ -1,5 +1,6 @@
 ﻿using System.Linq.Expressions;
 using ExpressionToSql.Composite;
+using ExpressionToSql.Dapper;
 using NetBlocks.Models;
 using Dapper;
 
@@ -26,11 +27,9 @@ public class PostgresCompositeQueryBuilder : ICompositeQueryBuilder<IPostgresDat
                         .Join(TLinkDataModel.Schema, TCompositeModel.Predicate)
                         .Join(TTargetDataModel.Schema, TLinkModel.Predicate)
                         .Where((root, link, target) => root.ID == key);
-                    
-                    var sql = query.ToSql();
 
                     // Take her to Dapper Town
-                    var result = await database.Connection.QueryAsync<TCompositeModel>(sql, new { key });
+                    var result = await database.Connection.QueryAsync(query);
                     if (result != null)
                     {
                         modelResults.Value = result.First();

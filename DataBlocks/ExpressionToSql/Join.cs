@@ -35,12 +35,18 @@ namespace ExpressionToSql
             
             // Copy entity types from the select query
             CopyEntityTypesFrom(select);
+            
+            // Register both parameters from the join expression
+            RegisterExpressionParameter(joinCondition);
         }
 
         internal override QueryBuilder ToSql(QueryBuilder qb)
         {
             // First build the base query
             _select.ToSql(qb);
+            
+            // Apply entity types from base query
+            ApplyEntityTypesToQueryBuilder(qb);
             
             // Register T1 as the primary table 
             qb.RegisterTableAlias<T1>(QueryBuilder.TableAliasName);

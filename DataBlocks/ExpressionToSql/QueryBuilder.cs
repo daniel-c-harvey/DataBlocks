@@ -15,6 +15,9 @@ namespace ExpressionToSql
 
         // Track current aliases
         private Dictionary<Type, string> _tableAliases = new Dictionary<Type, string>();
+        
+        // Track query parameters by name and type for better instance identification
+        private HashSet<string> _queryParameters = new HashSet<string>();
 
         public QueryBuilder(StringBuilder sb, ISqlDialect dialect, Query query)
         {
@@ -256,11 +259,47 @@ namespace ExpressionToSql
         {
             _tableAliases[typeof(T)] = alias;
         }
+        
+        // Register type-to-alias mapping with direct Type object
+        public void RegisterTableAliasForType(Type type, string alias)
+        {
+            _tableAliases[type] = alias;
+        }
 
         // Get alias for a type
-        public string GetAliasForType(Type type)
+        public string? GetAliasForType(Type type)
         {
-            return _tableAliases.TryGetValue(type, out var alias) ? alias : TableAliasName;
+            if (type == null)
+                return null;
+        
+            return _tableAliases.TryGetValue(type, out var alias) ? alias : null;
+        }
+
+        // Check if a type has a registered alias
+        public bool HasAliasForType(Type type)
+        {
+            if (type == null)
+                return false;
+        
+            return _tableAliases.ContainsKey(type);
+        }
+
+        // Get alias or create a new one if it doesn't exist
+        public string GetOrCreateAliasForType(Type type)
+        {
+            if (type == null)
+                throw new ArgumentNullException(nameof(type), "Type cannot be null when getting or creating an alias");
+        
+            // Check if the type already has an alias
+            if (_tableAliases.TryGetValue(type, out var existingAlias))
+            {
+                return existingAlias;
+            }
+        
+            // Create a new alias
+            var newAlias = GetNextAlias();
+            RegisterTableAliasForType(type, newAlias);
+            return newAlias;
         }
 
         // Add a method to get the condition status
@@ -273,6 +312,28 @@ namespace ExpressionToSql
         public void ResetConditionState()
         {
             _firstCondition = true;
+        }
+
+        // Register a parameter as part of the current query
+        public void RegisterQueryParameter(string paramName, Type paramType)
+        {
+            if (string.IsNullOrEmpty(paramName))
+                return;
+            
+            // Store a composite key of name+type to uniquely identify parameters
+            string key = $"{paramName}_{paramType.FullName}";
+            _queryParameters.Add(key);
+        }
+        
+        // Check if a parameter is part of the current query context
+        public bool IsParameterInQuery(string paramName, Type paramType)
+        {
+            if (string.IsNullOrEmpty(paramName))
+                return false;
+            
+            // Create composite key from name and type
+            string key = $"{paramName}_{paramType.FullName}";
+            return _queryParameters.Contains(key);
         }
     }
 }

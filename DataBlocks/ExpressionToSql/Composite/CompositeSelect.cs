@@ -22,6 +22,9 @@ namespace ExpressionToSql.Composite
             
             // Register the root entity type
             RegisterEntityType(QueryBuilder.TableAliasName, typeof(TRoot));
+            
+            // Register the selector parameters for tracking
+            RegisterExpressionParameter(selector);
         }
         
         /// <summary>
@@ -33,7 +36,8 @@ namespace ExpressionToSql.Composite
             JoinType joinType = JoinType.Inner)
         {
             var joinTable = new Table<TJoin> { Name = schema.CollectionName, Schema = schema.SchemaName };
-            return new CompositeJoin<TRoot, TJoin, TResult>(this, joinTable, joinCondition, joinType);
+            var baseJoin = new CompositeJoin<TRoot, TResult>(this);
+            return baseJoin.Join(joinTable, joinCondition, joinType);
         }
         
         /// <summary>
@@ -44,7 +48,8 @@ namespace ExpressionToSql.Composite
             Expression<Func<TRoot, TJoin, bool>> joinCondition, 
             JoinType joinType = JoinType.Inner)
         {
-            return new CompositeJoin<TRoot, TJoin, TResult>(this, joinTable, joinCondition, joinType);
+            var baseJoin = new CompositeJoin<TRoot, TResult>(this);
+            return baseJoin.Join(joinTable, joinCondition, joinType);
         }
         
         /// <summary>
@@ -52,21 +57,23 @@ namespace ExpressionToSql.Composite
         /// </summary>
         public CompositeWhere<TRoot, TResult> Where(Expression<Func<TRoot, bool>> predicate)
         {
-            return new CompositeWhere<TRoot, TResult>(this, predicate);
+            var baseJoin = new CompositeJoin<TRoot, TResult>(this);
+            return baseJoin.Where(predicate);
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
         {
-            // Handle select expressions
-            qb.RegisterTableAlias<TRoot>(QueryBuilder.TableAliasName);
+            // Register aliases with QueryBuilder
+            ApplyEntityTypesToQueryBuilder(qb);
             
-            // Add select expressions from the selector
-            var type = _selector.Parameters[0].Type;
-            var expressions = SelectExpressions.GetExpressions(type, _selector.Body);
-            SelectExpressions.AddExpressions(expressions, type, qb);
+            // Add the SELECT statement
+            CompositeExpressionUtils.AddExpressions(
+                CompositeExpressionUtils.GetExpressions(typeof(TResult), _selector.Body),
+                typeof(TRoot),
+                qb);
             
-            // Add FROM clause
-            qb.AddTable(_rootTable);
+            // Add the FROM clause
+            qb.AddTable(_rootTable, QueryBuilder.TableAliasName);
             
             return qb;
         }

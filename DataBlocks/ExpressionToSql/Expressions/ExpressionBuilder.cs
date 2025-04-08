@@ -35,8 +35,26 @@ namespace DataBlocks.ExpressionToSql.Expressions
             return this;
         }
 
-        public void BuildExpression(Expression expression, Func<QueryBuilder, BinaryExpression, string, Clause> clause)
+        public void BuildExpression(Expression expression, Func<QueryBuilder, BinaryExpression, ExpressionBuilder, string, Clause> clause)
         {
+            // If this is a parameter expression, register it with the query
+            if (expression is LambdaExpression lambda && lambda.Parameters.Count > 0)
+            {
+                foreach (var param in lambda.Parameters)
+                {
+                    // Register parameter directly with the query
+                    _query.RegisterParameter(param.Name, param.Type);
+                }
+                
+                // Process the lambda body
+                expression = lambda.Body;
+            }
+            else if (expression is ParameterExpression paramExpr)
+            {
+                // Direct parameter expression
+                _query.RegisterParameter(paramExpr.Name, paramExpr.Type);
+            }
+            
             switch (expression.NodeType)
             {
                 case ExpressionType.Not:
@@ -60,7 +78,7 @@ namespace DataBlocks.ExpressionToSql.Expressions
             }
         }
 
-        public virtual void BuildMethodCallExpression(Expression expression, Func<QueryBuilder, BinaryExpression, string, Clause> clause)
+        public virtual void BuildMethodCallExpression(Expression expression, Func<QueryBuilder, BinaryExpression, ExpressionBuilder, string, Clause> clause)
         {
             // Handle method calls like IsIn
             var methodCall = (MethodCallExpression)expression;
@@ -87,7 +105,7 @@ namespace DataBlocks.ExpressionToSql.Expressions
             }
         }
 
-        protected void BuildNotExpression(UnaryExpression unaryExpression, Func<QueryBuilder, BinaryExpression, string, Clause> clause)
+        protected void BuildNotExpression(UnaryExpression unaryExpression, Func<QueryBuilder, BinaryExpression, ExpressionBuilder, string, Clause> clause)
         {
             if (unaryExpression.NodeType != ExpressionType.Not)
                 throw new NotImplementedException($"Unary expression type {unaryExpression.NodeType} not supported");
@@ -97,22 +115,22 @@ namespace DataBlocks.ExpressionToSql.Expressions
                 switch (binaryOperand.NodeType)
                 {
                     case ExpressionType.Equal:
-                        clause(_queryBuilder, binaryOperand, "<>").Append();
+                        clause(_queryBuilder, binaryOperand, this, "<>").Append2();
                         break;
                     case ExpressionType.NotEqual:
-                        clause(_queryBuilder, binaryOperand, "=").Append();
+                        clause(_queryBuilder, binaryOperand, this, "=").Append2();
                         break;
                     case ExpressionType.GreaterThan:
-                        clause(_queryBuilder, binaryOperand, "<=").Append();
+                        clause(_queryBuilder, binaryOperand, this, "<=").Append2();
                         break;
                     case ExpressionType.GreaterThanOrEqual:
-                        clause(_queryBuilder, binaryOperand, "<").Append();
+                        clause(_queryBuilder, binaryOperand, this, "<").Append2();
                         break;
                     case ExpressionType.LessThan:
-                        clause(_queryBuilder, binaryOperand, ">=").Append();
+                        clause(_queryBuilder, binaryOperand, this, ">=").Append2();
                         break;
                     case ExpressionType.LessThanOrEqual:
-                        clause(_queryBuilder, binaryOperand, ">").Append();
+                        clause(_queryBuilder, binaryOperand, this, ">").Append2();
                         break;
                     default:
                         _queryBuilder.AppendNot();
@@ -125,7 +143,7 @@ namespace DataBlocks.ExpressionToSql.Expressions
             else if (unaryExpression.Operand is MemberExpression memberExpression)
             {
                 var attributeName = GetAttributeName(memberExpression);
-                clause(_queryBuilder, null, "=").AppendWithAttribute(attributeName, false);
+                clause(_queryBuilder, null, this, "=").AppendWithAttribute(attributeName, false);
             }
             else
             {
@@ -133,27 +151,27 @@ namespace DataBlocks.ExpressionToSql.Expressions
             }
         }
 
-        protected void BuildBinaryExpression(BinaryExpression binaryExpression, Func<QueryBuilder, BinaryExpression, string, Clause> clause)
+        protected void BuildBinaryExpression(BinaryExpression binaryExpression, Func<QueryBuilder, BinaryExpression, ExpressionBuilder, string, Clause> clause)
         {
             switch (binaryExpression.NodeType)
             {
                 case ExpressionType.Equal:
-                    clause(_queryBuilder, binaryExpression, "=").Append();
+                    clause(_queryBuilder, binaryExpression, this, "=").Append2();
                     break;
                 case ExpressionType.NotEqual:
-                    clause(_queryBuilder, binaryExpression, "<>").Append();
+                    clause(_queryBuilder, binaryExpression, this, "<>").Append2();
                     break;
                 case ExpressionType.GreaterThan:
-                    clause(_queryBuilder, binaryExpression, ">").Append();
+                    clause(_queryBuilder, binaryExpression, this, ">").Append2();
                     break;
                 case ExpressionType.GreaterThanOrEqual:
-                    clause(_queryBuilder, binaryExpression, ">=").Append();
+                    clause(_queryBuilder, binaryExpression, this, ">=").Append2();
                     break;
                 case ExpressionType.LessThan:
-                    clause(_queryBuilder, binaryExpression, "<").Append();
+                    clause(_queryBuilder, binaryExpression, this, "<").Append2();
                     break;
                 case ExpressionType.LessThanOrEqual:
-                    clause(_queryBuilder, binaryExpression, "<=").Append();
+                    clause(_queryBuilder, binaryExpression, this, "<=").Append2();
                     break;
                 case ExpressionType.AndAlso:
                     BuildExpression(binaryExpression.Left, clause);
@@ -181,9 +199,21 @@ namespace DataBlocks.ExpressionToSql.Expressions
         {
             if (expression.Expression is ParameterExpression paramExpr)
             {
-                return _queryBuilder.GetAliasForType(paramExpr.Type);
+                var alias = _queryBuilder.GetAliasForType(paramExpr.Type);
+                // If we got a null alias, use the default
+                if (string.IsNullOrEmpty(alias))
+                {
+                    // This is likely an error - we got a type that hasn't been properly registered
+                    throw new InvalidOperationException(
+                        $"Type {paramExpr.Type.Name} was not found in the query's registered entity types. " +
+                        "Check that all joined types are properly registered.");
+                }
+                return alias;
             }
-            return QueryBuilder.TableAliasName; // Default alias
+            
+            // For non-parameter expressions, use the default alias
+            // Note: This might be a nested property access (e.g. person.Address.Street)
+            return QueryBuilder.TableAliasName;
         }
 
         public class Clause
@@ -210,19 +240,17 @@ namespace DataBlocks.ExpressionToSql.Expressions
                 _condition = condition;
             }
 
-            public static Clause And(QueryBuilder qb, BinaryExpression binaryExpression, string op)
+            public static Clause And(QueryBuilder qb, BinaryExpression binaryExpression, ExpressionBuilder eb, string op)
             {
-                var expressionBuilder = new ExpressionBuilder(qb._query, qb);
-                return new Clause(binaryExpression, op, qb.AddCondition, qb.AddCondition, qb, expressionBuilder, "AND");
+                return new Clause(binaryExpression, op, qb.AddCondition, qb.AddCondition, qb, eb, "AND");
             }
 
-            public static Clause Or(QueryBuilder qb, BinaryExpression binaryExpression, string op)
+            public static Clause Or(QueryBuilder qb, BinaryExpression binaryExpression, ExpressionBuilder eb, string op)
             {
-                var expressionBuilder = new ExpressionBuilder(qb._query, qb);
-                return new Clause(binaryExpression, op, qb.OrCondition, qb.OrCondition, qb, expressionBuilder, "OR");
+                return new Clause(binaryExpression, op, qb.OrCondition, qb.OrCondition, qb, eb, "OR");
             }
 
-            public void Append()
+            public void Append2()
             {
                 if (_binaryExpression == null)
                     return;
@@ -230,125 +258,257 @@ namespace DataBlocks.ExpressionToSql.Expressions
                 var left = _binaryExpression.Left;
                 var right = _binaryExpression.Right;
                 
-                // Handle reversed expressions (constant on left)
-                if (left.NodeType == ExpressionType.Constant && right.NodeType == ExpressionType.MemberAccess)
-                {
-                    (left, right) = (right, left);
-                }
+                // Step 1: Determine operand order
+                (left, right, bool isSwapped) = DetermineOperandOrder(left, right);
 
+                // Step 2: Process the binary expression with determined order
+                ProcessOrderedExpression(left, right, isSwapped);
+            }
+
+            private void ProcessOrderedExpression(Expression left, Expression right, bool isSwapped)
+            {
+                // Left expression must be a member access for query columns
                 if (left is MemberExpression leftMember)
                 {
-                    string tableAlias = _expressionBuilder.GetTableAliasForMember(leftMember);
-                    string attributeName = _expressionBuilder.GetAttributeName(leftMember);
-
-                    switch (right.NodeType)
-                    {
-                        case ExpressionType.Constant:
-                            var c = (ConstantExpression)right;
-                            var paramName = $"p_{attributeName}";
-                            
-                            // For attribute condition, we need to manually check if it's the first condition
-                            if (_queryBuilder.IsFirstCondition())
-                            {
-                                // The first condition needs special handling based on current clause type
-                                if (_expressionBuilder._currentClauseType == ClauseType.Where)
-                                {
-                                    _queryBuilder.AppendCondition("WHERE");
-                                }
-                                else if (_expressionBuilder._currentClauseType == ClauseType.On)
-                                {
-                                    _queryBuilder.Append(" ON");
-
-                                }
-                                else if (_expressionBuilder._currentClauseType == ClauseType.Having)
-                                {
-                                    _queryBuilder.AppendCondition("HAVING");
-                                }
-                                
-                                _queryBuilder.AddAttribute(attributeName, "", tableAlias);
-                                _queryBuilder.Append(" ").Append(_op);
-                                _queryBuilder.AddParameterWithValue(paramName, c.Value);
-                            }
-                            else
-                            {
-                                // Use the normal condition handling for subsequent conditions
-                                _appendParameter(_op, attributeName, paramName, c.Value, tableAlias);
-                            }
-                            break;
-                        case ExpressionType.MemberAccess:
-                            var rightMember = (MemberExpression)right;
-                            var value = Expression.Lambda(rightMember).Compile().DynamicInvoke();
-                            
-                            // Same logic for member expression
-                            if (_queryBuilder.IsFirstCondition())
-                            {
-                                // Handle first condition based on current clause type
-                                if (_expressionBuilder._currentClauseType == ClauseType.Where)
-                                {
-                                    _queryBuilder.AppendCondition("WHERE");
-                                }
-                                else if (_expressionBuilder._currentClauseType == ClauseType.On)
-                                {
-                                    _queryBuilder.Append(" ON");
-                                }
-                                else if (_expressionBuilder._currentClauseType == ClauseType.Having)
-                                {
-                                    _queryBuilder.AppendCondition("HAVING");
-                                }
-                                
-                                _queryBuilder.AddAttribute(attributeName, "", tableAlias);
-                                _queryBuilder.Append(" ").Append(_op);
-                                _queryBuilder.AddParameterWithValue(rightMember.Member.Name, value);
-                            }
-                            else
-                            {
-                                _appendParameter(_op, attributeName, rightMember.Member.Name, value, tableAlias);
-                            }
-                            break;
-                        default:
-                            throw new NotImplementedException($"Right operand type {right.NodeType} not supported");
-                    }
+                    // 1. Handle SQL clause prefix (WHERE/ON/HAVING) if needed
+                    HandleClausePrefix();
+                    
+                    // 2. Process the left side (always a query property)
+                    ProcessLeftSide(leftMember, isSwapped);
+                    
+                    // 3. Process the right side based on its type
+                    ProcessRightSide(right, _expressionBuilder.GetAttributeName(leftMember));
                 }
                 else
                 {
                     throw new NotImplementedException($"Left operand type {left.NodeType} not supported");
                 }
             }
-            
-            public void AppendWithAttribute(string attributeName, object value)
+
+            private void HandleClausePrefix()
             {
-                // Check if this is the first condition
                 if (_queryBuilder.IsFirstCondition())
                 {
-                    // Handle first condition based on current clause type
-                    if (_expressionBuilder._currentClauseType == ClauseType.Where)
+                    // Add the appropriate clause keyword
+                    switch (_expressionBuilder._currentClauseType)
                     {
-                        _queryBuilder.AppendCondition("WHERE");
+                        case ClauseType.Where:
+                            _queryBuilder.AppendCondition("WHERE");
+                            break;
+                        case ClauseType.On:
+                            _queryBuilder.Append(" ON");
+                            break;
+                        case ClauseType.Having:
+                            _queryBuilder.AppendCondition("HAVING");
+                            break;
                     }
-                    else if (_expressionBuilder._currentClauseType == ClauseType.On)
-                    {
-                        // Apply join condition with ON keyword
-                        _queryBuilder.Append(" ON");
-
-                    }
-                    else if (_expressionBuilder._currentClauseType == ClauseType.Having)
-                    {
-                        _queryBuilder.AppendCondition("HAVING");
-                    }
-                    
-                    _queryBuilder.AddAttribute(attributeName, "", QueryBuilder.TableAliasName);
-                    _queryBuilder.Append(" ").Append(_op);
-                    
-                    var paramName = $"p_{attributeName}_direct";
-                    _queryBuilder.AddParameterWithValue(paramName, value);
                 }
                 else
                 {
-                    // Use parameterized value
-                    var paramName = $"p_{attributeName}_direct";
-                    _appendParameter(_op, attributeName, paramName, value, QueryBuilder.TableAliasName);
+                    // Not the first condition, add the proper conjunction
+                    _queryBuilder.Append(" ").Append(_condition);
                 }
+            }
+
+            private void ProcessLeftSide(MemberExpression leftMember, bool isSwapped)
+            {
+                string tableAlias = _expressionBuilder.GetTableAliasForMember(leftMember);
+                string attributeName = _expressionBuilder.GetAttributeName(leftMember);
+                
+                // Add the column reference
+                _queryBuilder.AddAttribute(attributeName, "", tableAlias);
+                
+                // Add the operator (reversed if needed)
+                _queryBuilder.Append(" ").Append(isSwapped ? ReverseOperator(_op) : _op);
+            }
+
+            private void ProcessRightSide(Expression right, string leftAttributeName)
+            {
+                switch (right.NodeType)
+                {
+                    case ExpressionType.Constant:
+                        // Simple constant value
+                        AddParameterFromConstant((ConstantExpression)right, leftAttributeName);
+                        break;
+                        
+                    case ExpressionType.MemberAccess:
+                        // Member could be: another query property or a closure variable
+                        ProcessRightMember((MemberExpression)right, leftAttributeName);
+                        break;
+                        
+                    default:
+                        throw new NotImplementedException($"Right operand type {right.NodeType} not supported");
+                }
+            }
+
+            private void AddParameterFromConstant(ConstantExpression constExpr, string attributeName)
+            {
+                var paramName = $"p_{attributeName}";
+                _queryBuilder.AddParameterWithValue(paramName, constExpr.Value);
+            }
+
+            private void ProcessRightMember(MemberExpression memberExpr, string leftAttributeName)
+            {
+                string rightTableAlias = _expressionBuilder.GetTableAliasForMember(memberExpr);
+                
+                if (IsPropertyInQuery(memberExpr, rightTableAlias))
+                {
+                    // This is another column in the query
+                    string rightAttributeName = _expressionBuilder.GetAttributeName(memberExpr);
+                    _queryBuilder.AddAttribute(rightAttributeName, "", rightTableAlias);
+                }
+                else
+                {
+                    // This is a closure variable - add as parameter
+                    object value = Expression.Lambda(memberExpr).Compile().DynamicInvoke();
+                    string paramName = $"p_{leftAttributeName}";
+                    _queryBuilder.AddParameterWithValue(paramName, value);
+                }
+            }
+
+            private string ReverseOperator(string op)
+            {
+                // Return the reversed comparison operator if needed
+                return op switch
+                {
+                    ">" => "<",
+                    "<" => ">",
+                    ">=" => "<=",
+                    "<=" => ">=",
+                    _ => op  // = and <> operators remain the same when reversed
+                };
+            }
+
+            private (Expression left, Expression right, bool swapped) DetermineOperandOrder(Expression left, Expression right)
+            {
+                bool swapped = false;
+                
+                // Case 1: Simple constant on left
+                if (left.NodeType == ExpressionType.Constant && right.NodeType == ExpressionType.MemberAccess)
+                {
+                    return (right, left, true);
+                }
+                
+                // Case 2: Both are member expressions - need to check if right is part of the query and left is not
+                if (left is MemberExpression leftMember && right is MemberExpression rightMember)
+                {
+                    // Determine if each member belongs to the query or an external context
+                    bool leftIsQueryProperty = IsExpressionInQueryContext(leftMember);
+                    bool rightIsQueryProperty = IsExpressionInQueryContext(rightMember);
+                    
+                    // If right is a query property and left is not (e.g., closure variable)
+                    // then we should swap them
+                    if (rightIsQueryProperty && !leftIsQueryProperty)
+                    {
+                        return (right, left, true);
+                    }
+                }
+                
+                // Default - keep original order
+                return (left, right, swapped);
+            }
+            
+            // Helper method to determine if an expression is in the query context
+            private bool IsExpressionInQueryContext(Expression expr)
+            {
+                // For parameter expressions, check if they're registered in the query
+                if (expr is ParameterExpression paramExpr)
+                {
+                    return _expressionBuilder._query.HasExpressionParameter(paramExpr.Name, paramExpr.Type);
+                }
+                
+                // For member expressions, check the containing expression
+                if (expr is MemberExpression memberExpr)
+                {
+                    // Get the table alias to check if this is a known entity in the query
+                    string tableAlias = _expressionBuilder.GetTableAliasForMember(memberExpr);
+                    
+                    // Check if this member is from a closure (constant) or parameter
+                    return IsPropertyInQuery(memberExpr, tableAlias);
+                }
+                
+                // Default to false for unknown expressions
+                return false;
+            }
+            
+            private bool IsPropertyInQuery(MemberExpression member, string tableAlias)
+            {
+                // If this is a closure variable (captured from outer scope)
+                if (member.Expression?.NodeType == ExpressionType.Constant)
+                {
+                    return false; // Constant expressions are always from closures
+                }
+                
+                // If this is a parameter expression, we need to check if it's part of our query
+                if (member.Expression is ParameterExpression paramExpr)
+                {
+                    // Check if this parameter is registered in the query context
+                    return _expressionBuilder._query.HasExpressionParameter(paramExpr.Name, paramExpr.Type);
+                }
+                
+                // Handle nested property expressions
+                if (member.Expression is MemberExpression nestedMember)
+                {
+                    // Recursively check if the parent member is in the query
+                    return IsPropertyInQuery(nestedMember, tableAlias);
+                }
+                
+                // Check if the type has a registered alias (indicates it's part of the query)
+                if (member.Expression?.Type != null && _queryBuilder.HasAliasForType(member.Expression.Type))
+                {
+                    return true;
+                }
+                
+                // Check if the table alias is registered for any entity in the query
+                if (!string.IsNullOrEmpty(tableAlias))
+                {
+                    // If we have a non-default alias, it likely means this property is from an entity in our query
+                    if (tableAlias != QueryBuilder.TableAliasName)
+                    {
+                        return true;
+                    }
+                    
+                    // If we have the default alias, check if it's a known entity type
+                    if (_expressionBuilder._query.GetEntityType(tableAlias) != null)
+                    {
+                        return true;
+                    }
+                }
+                
+                // No strong evidence this property is part of our query
+                return false;
+            }
+
+            public void AppendWithAttribute(string attributeName, object value)
+            {
+                // Handle clause prefix
+                HandleClausePrefix();
+                
+                // Add attribute
+                _queryBuilder.AddAttribute(attributeName, "", QueryBuilder.TableAliasName);
+                _queryBuilder.Append(" ").Append(_op);
+                
+                // Add parameter
+                var paramName = $"p_{attributeName}_direct";
+                _queryBuilder.AddParameterWithValue(paramName, value);
             }
         }
     }
+
+    // // Extension for QueryBuilder
+    // public static class QueryBuilderExtensions
+    // {
+    //     public static bool HasAliasForType(this QueryBuilder queryBuilder, Type type)
+    //     {
+    //         if (type == null)
+    //             return false;
+    //
+    //         // Get alias for the type - this should reuse the same logic
+    //         // that GetAliasForType is using
+    //         var alias = queryBuilder.GetAliasForType(type);
+    //         
+    //         // If we got something other than the default, it exists
+    //         return !string.IsNullOrEmpty(alias);
+    //     }
+    // }
 }

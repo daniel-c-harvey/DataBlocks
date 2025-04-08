@@ -1,9 +1,10 @@
-﻿namespace ExpressionToSql.Dapper
+﻿using ExpressionToSql.Composite;
+
+namespace ExpressionToSql.Dapper
 {
     using System.Collections.Generic;
     using System.Data;
     using System.Threading.Tasks;
-    using System.Linq;
     using ExpressionToSql;
     using global::Dapper;
 
@@ -15,6 +16,21 @@
         }
 
         public static Task<IEnumerable<R>> QueryAsync<T, R>(this IDbConnection cnn, Where<T, R> sql, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null)
+        {
+            return QueryAsync<R>(cnn, sql, param, transaction, commandTimeout, commandType);
+        }
+        
+        public static Task<IEnumerable<R>> QueryAsync<T, R>(this IDbConnection cnn, CompositeWhere<T, R> sql, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null)
+        {
+            return QueryAsync<R>(cnn, sql, param, transaction, commandTimeout, commandType);
+        }
+        
+        public static Task<IEnumerable<R>> QueryAsync<T, T2, R>(this IDbConnection cnn, CompositeWhere<T, T2, R> sql, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null)
+        {
+            return QueryAsync<R>(cnn, sql, param, transaction, commandTimeout, commandType);
+        }
+        
+        public static Task<IEnumerable<R>> QueryAsync<T, T2, T3, R>(this IDbConnection cnn, CompositeWhere<T, T2, T3, R> sql, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null)
         {
             return QueryAsync<R>(cnn, sql, param, transaction, commandTimeout, commandType);
         }

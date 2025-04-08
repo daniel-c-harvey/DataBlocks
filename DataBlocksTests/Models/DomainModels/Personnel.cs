@@ -46,7 +46,4 @@ public class Personnel : ICompositeModel<Personnel, Models.Personnel, Models.Per
 
     public static Expression<Func<Models.Personnel, Models.PersonnelContact, bool>> Predicate =>
         (p, pc) => p.ID == pc.PersonnelId;
-
-    public static JoinChain<Personnel, Models.Personnel, Models.PersonnelContact> Join { get; } =
-        JoinChain<Personnel, Models.Personnel, Models.PersonnelContact>.CreateJoin();
 }

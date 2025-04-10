@@ -48,6 +48,14 @@ namespace ExpressionToSql
             }
         }
         
+        protected internal void CopyParametersFromType(Query baseQuery)
+        {
+            foreach (var (key, value) in baseQuery.Parameters)
+            {
+                Parameters.TryAdd(key, value);
+            }
+        }
+        
         // Helper to ensure alias mappings are properly applied to a QueryBuilder
         protected internal void ApplyEntityTypesToQueryBuilder(QueryBuilder qb)
         {

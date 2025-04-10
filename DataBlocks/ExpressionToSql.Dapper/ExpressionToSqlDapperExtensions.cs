@@ -20,21 +20,6 @@ namespace ExpressionToSql.Dapper
             return QueryAsync<R>(cnn, sql, param, transaction, commandTimeout, commandType);
         }
         
-        public static Task<IEnumerable<R>> QueryAsync<T, R>(this IDbConnection cnn, CompositeWhere<T, R> sql, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null)
-        {
-            return QueryAsync<R>(cnn, sql, param, transaction, commandTimeout, commandType);
-        }
-        
-        public static Task<IEnumerable<R>> QueryAsync<T, T2, R>(this IDbConnection cnn, CompositeWhere<T, T2, R> sql, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null)
-        {
-            return QueryAsync<R>(cnn, sql, param, transaction, commandTimeout, commandType);
-        }
-        
-        public static Task<IEnumerable<R>> QueryAsync<T, T2, T3, R>(this IDbConnection cnn, CompositeWhere<T, T2, T3, R> sql, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null)
-        {
-            return QueryAsync<R>(cnn, sql, param, transaction, commandTimeout, commandType);
-        }
-        
         public static Task<IEnumerable<R>> QueryAsync<T, R>(this IDbConnection cnn, Limit<T, R> sql, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null)
         {
             return QueryAsync<R>(cnn, sql, param, transaction, commandTimeout, commandType);
@@ -49,6 +34,7 @@ namespace ExpressionToSql.Dapper
         {
             return QueryAsync<R>(cnn, sql, param, transaction, commandTimeout, commandType);
         }
+        
         
         private static Task<IEnumerable<R>> QueryAsync<R>(IDbConnection cnn, Query sql, object param, IDbTransaction transaction, int? commandTimeout, CommandType? commandType)
         {

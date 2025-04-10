@@ -12,7 +12,7 @@ public class PostgresCompositeQueryBuilder : ICompositeQueryBuilder<IPostgresDat
         where TDataModel : IModel
         where TLinkDataModel : IModel
         where TTargetDataModel : IModel
-        where TCompositeModel : ICompositeModel<TCompositeModel, TDataModel, TLinkDataModel>
+        where TCompositeModel : ICompositeModel<TCompositeModel, TTargetModel, TDataModel, TLinkDataModel, TTargetDataModel>
         where TLinkModel : ILinkModel<TLinkModel, TLinkDataModel, TTargetDataModel>
         where TTargetModel : IConstituentModel<TTargetDataModel>
     {
@@ -22,14 +22,20 @@ public class PostgresCompositeQueryBuilder : ICompositeQueryBuilder<IPostgresDat
             {
                 var modelResults = new ResultContainer<TCompositeModel>();
                 try
-                {                    
-                    var query = PSqlC.SelectComposite<TDataModel, TDataModel>(x => x, TDataModel.Schema)
+                {
+                    var query = PSqlC.From<TDataModel>(TDataModel.Schema)
                         .Join(TLinkDataModel.Schema, TCompositeModel.Predicate)
                         .Join(TTargetDataModel.Schema, TLinkModel.Predicate)
-                        .Where((root, link, target) => root.ID == key);
+                        .Where((root, link, target) => root.ID == key)
+                        .Select((root, link, target) => new CompositeContainer<TDataModel, TTargetDataModel> { CompositeModel = root, TargetModel = target });
 
                     // Take her to Dapper Town
-                    var result = await database.Connection.QueryAsync(query);
+                    var result = await database.Connection.QueryAsync<TDataModel, 
+                                                                      TLinkDataModel, 
+                                                                      TTargetDataModel, 
+                                                                      TCompositeModel, 
+                                                                      TTargetModel,
+                                                                      CompositeContainer<TDataModel, TTargetDataModel>>(query, TCompositeModel.GetMap(), TCompositeModel.SplitOn);
                     if (result != null)
                     {
                         modelResults.Value = result.First();
@@ -52,7 +58,7 @@ public class PostgresCompositeQueryBuilder : ICompositeQueryBuilder<IPostgresDat
         where TDataModel : IModel
         where TLinkDataModel : IModel
         where TTargetDataModel : IModel
-        where TCompositeModel : ICompositeModel<TCompositeModel, TDataModel, TLinkDataModel>
+        where TCompositeModel : ICompositeModel<TCompositeModel, TTargetModel, TDataModel, TLinkDataModel, TTargetDataModel>
         where TLinkModel : ILinkModel<TLinkModel, TLinkDataModel, TTargetDataModel>
         where TTargetModel : IConstituentModel<TTargetDataModel>
     {
@@ -60,16 +66,29 @@ public class PostgresCompositeQueryBuilder : ICompositeQueryBuilder<IPostgresDat
         {
             return new PostgresQuery<ResultContainer<IEnumerable<TCompositeModel>>>(async (database) =>
             {
+                var modelResults = new ResultContainer<IEnumerable<TCompositeModel>>();
                 try
-                {                    
-                    // Execute the query using Dapper
-                    // var results = await database.Connection.QueryAsync<TModel>(sql);
-                    // return ResultContainer<IEnumerable<TModel>>.CreatePassResult(results);
+                {
+                    // // Create composite query with the enhanced SELECT capabilities
+                    // var query = PSqlC.From<TDataModel>(TDataModel.Schema)
+                    //     .Join(TLinkDataModel.Schema, TCompositeModel.Predicate)
+                    //     .Join(TTargetDataModel.Schema, TLinkModel.Predicate)
+                    //     .Select((root, link, target) => new { root, target } as dynamic);
+                    //
+                    // // Execute using Dapper's multi-mapping capabilities
+                    // var result = await database.Connection.QueryAsync<TDataModel, 
+                    //                                                  TLinkDataModel, 
+                    //                                                  TTargetDataModel, 
+                    //                                                  TCompositeModel, 
+                    //                                                  TTargetModel>(query, TCompositeModel.Map, TCompositeModel.SplitOn);
+                    //
+                    // modelResults.Value = result;
+                    // return modelResults;
                     throw new NotImplementedException();
                 }
                 catch (Exception ex)
                 {
-                    return ResultContainer<IEnumerable<TCompositeModel>>.CreateFailResult($"Database error: {ex.Message}");
+                    return modelResults.Fail($"Database error: {ex.Message}");
                 }
             });
         }
@@ -84,7 +103,7 @@ public class PostgresCompositeQueryBuilder : ICompositeQueryBuilder<IPostgresDat
         where TDataModel : IModel
         where TLinkDataModel : IModel
         where TTargetDataModel : IModel
-        where TCompositeModel : ICompositeModel<TCompositeModel, TDataModel, TLinkDataModel>
+        where TCompositeModel : ICompositeModel<TCompositeModel, TTargetModel, TDataModel, TLinkDataModel, TTargetDataModel>
         where TLinkModel : ILinkModel<TLinkModel, TLinkDataModel, TTargetDataModel>
         where TTargetModel : IConstituentModel<TTargetDataModel>
     {
@@ -92,16 +111,31 @@ public class PostgresCompositeQueryBuilder : ICompositeQueryBuilder<IPostgresDat
         {
             return new PostgresQuery<ResultContainer<IEnumerable<TCompositeModel>>>(async (database) =>
             {
+                var modelResults = new ResultContainer<IEnumerable<TCompositeModel>>();
                 try
                 {
-                    // Execute the query using Dapper
-                    // var results = await database.Connection.QueryAsync<TModel>(sql);
-                    // return ResultContainer<IEnumerable<TModel>>.CreatePassResult(results);
+                    // // Create composite query with pagination
+                    // var query = PSqlC.From<TDataModel>(TDataModel.Schema)
+                    //     .Join(TLinkDataModel.Schema, TCompositeModel.Predicate)
+                    //     .Join(TTargetDataModel.Schema, TLinkModel.Predicate)
+                    //     .Select((root, link, target) => new { root, target } as dynamic);
+                    //
+                    // // TODO: Add pagination parameters to the query
+                    //
+                    // // Execute using Dapper's multi-mapping capabilities
+                    // var result = await database.Connection.QueryAsync<TDataModel, 
+                    //                                                  TLinkDataModel, 
+                    //                                                  TTargetDataModel, 
+                    //                                                  TCompositeModel, 
+                    //                                                  TTargetModel>(query, TCompositeModel.Map, TCompositeModel.SplitOn);
+                    //
+                    // modelResults.Value = result;
+                    // return modelResults;
                     throw new NotImplementedException();
                 }
                 catch (Exception ex)
                 {
-                    return ResultContainer<IEnumerable<TCompositeModel>>.CreateFailResult($"Database error: {ex.Message}");
+                    return modelResults.Fail($"Database error: {ex.Message}");
                 }
             });
         }
@@ -116,7 +150,7 @@ public class PostgresCompositeQueryBuilder : ICompositeQueryBuilder<IPostgresDat
         where TDataModel : IModel
         where TLinkDataModel : IModel
         where TTargetDataModel : IModel
-        where TCompositeModel : ICompositeModel<TCompositeModel, TDataModel, TLinkDataModel>
+        where TCompositeModel : ICompositeModel<TCompositeModel, TTargetModel, TDataModel, TLinkDataModel, TTargetDataModel>
         where TLinkModel : ILinkModel<TLinkModel, TLinkDataModel, TTargetDataModel>
         where TTargetModel : IConstituentModel<TTargetDataModel>
     {
@@ -124,20 +158,30 @@ public class PostgresCompositeQueryBuilder : ICompositeQueryBuilder<IPostgresDat
         {
             return new PostgresQuery<ResultContainer<IEnumerable<TCompositeModel>>>(async (database) =>
             {
+                var modelResults = new ResultContainer<IEnumerable<TCompositeModel>>();
                 try
                 {
-                    // var table = new Table<TModel> { Name = schema.CollectionName, Schema = schema.SchemaName };
-                    
-                    // Create composite query
-                    // var query = PSqlC.SelectComposite<TModel, TModel>(x => x, table);
-                    
-                    // Execute the query using Dapper
-                    // var results = await database.Connection.QueryAsync<TModel>(sql);
+                    // // Create composite query with the predicate
+                    // var query = PSqlC.From<TDataModel>(TDataModel.Schema)
+                    //     .Join(TLinkDataModel.Schema, TCompositeModel.Predicate)
+                    //     .Join(TTargetDataModel.Schema, TLinkModel.Predicate)
+                    //     .Where((root, link, target) => predicate.Compile()(root, target)) // Adapt the predicate
+                    //     .Select((root, link, target) => new { root, target } as dynamic);
+                    //
+                    // // Execute using Dapper's multi-mapping capabilities
+                    // var result = await database.Connection.QueryAsync<TDataModel, 
+                    //                                                  TLinkDataModel, 
+                    //                                                  TTargetDataModel, 
+                    //                                                  TCompositeModel, 
+                    //                                                  TTargetModel>(query, TCompositeModel.Map, TCompositeModel.SplitOn);
+                    //
+                    // modelResults.Value = result;
+                    // return modelResults;
                     throw new NotImplementedException();
                 }
                 catch (Exception ex)
                 {
-                    return ResultContainer<IEnumerable<TCompositeModel>>.CreateFailResult($"Database error: {ex.Message}");
+                    return modelResults.Fail($"Database error: {ex.Message}");
                 }
             });
         }

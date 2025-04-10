@@ -55,6 +55,7 @@ public class JoinTests
     private static IDataAdapter<Models.Personnel> personnelAdapter;
     private static IDataAdapter<Models.Contact> contactAdapter;
     private static IDataAdapter<Models.PersonnelContact> personnelContactAdapter;
+    
     private static ICompositeDataAdapter<Models.DomainModels.Personnel, Models.Personnel, 
                                          Models.DomainModels.PersonnelContact, Models.PersonnelContact, 
                                          Models.DomainModels.Contact, Models.Contact> personnelAdapterComposite;

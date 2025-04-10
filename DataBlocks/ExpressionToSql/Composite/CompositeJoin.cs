@@ -10,7 +10,7 @@ namespace ExpressionToSql.Composite
     /// <summary>
     /// Represents a base JOIN type in a composite query 
     /// </summary>
-    public abstract class CompositeJoinBase<TRoot, TResult> : Query
+    public abstract class CompositeJoinBase<TRoot> : Query
     {
         /// <summary>
         /// Interface for type-safe join information
@@ -62,14 +62,14 @@ namespace ExpressionToSql.Composite
             }
         }
         
-        public readonly CompositeSelect<TRoot, TResult> _baseSelect;
+        public readonly CompositeFrom<TRoot> _baseQuery;
         public readonly List<IJoinInfo> _joins = new List<IJoinInfo>();
         
-        internal CompositeJoinBase(CompositeSelect<TRoot, TResult> baseSelect)
-            : base(baseSelect.Dialect)
+        internal CompositeJoinBase(CompositeFrom<TRoot> baseQuery)
+            : base(baseQuery.Dialect)
         {
-            _baseSelect = baseSelect;
-            CopyEntityTypesFrom(baseSelect);
+            _baseQuery = baseQuery;
+            CopyEntityTypesFrom(baseQuery);
         }
         
         /// <summary>
@@ -118,7 +118,7 @@ namespace ExpressionToSql.Composite
         internal override QueryBuilder ToSql(QueryBuilder qb)
         {
             // Build the base select query
-            _baseSelect.ToSql(qb);
+            _baseQuery.ToSql(qb);
             
             // Apply entity types to ensure aliases are properly registered
             ApplyEntityTypesToQueryBuilder(qb);
@@ -147,22 +147,22 @@ namespace ExpressionToSql.Composite
     /// <summary>
     /// Represents the first JOIN in a composite query
     /// </summary>
-    public class CompositeJoin<TRoot, TResult> : CompositeJoinBase<TRoot, TResult>
+    public class CompositeJoin<TRoot> : CompositeJoinBase<TRoot>
     {
-        internal CompositeJoin(CompositeSelect<TRoot, TResult> baseSelect)
-            : base(baseSelect)
+        internal CompositeJoin(CompositeFrom<TRoot> baseQuery)
+            : base(baseQuery)
         {
         }
         
         /// <summary>
         /// Adds a JOIN to the query with the root table
         /// </summary>
-        public CompositeJoin<TRoot, TJoin, TResult> Join<TJoin>(
+        public CompositeJoin<TRoot, TJoin> Join<TJoin>(
             Table joinTable,
             Expression<Func<TRoot, TJoin, bool>> joinCondition, 
             JoinType joinType = JoinType.Inner)
         {
-            var result = new CompositeJoin<TRoot, TJoin, TResult>(this);
+            var result = new CompositeJoin<TRoot, TJoin>(this);
             result._joins.AddRange(_joins);
             result._joins.Add(new JoinInfo<TRoot, TJoin>(joinTable, joinCondition, joinType));
             return result;
@@ -171,7 +171,7 @@ namespace ExpressionToSql.Composite
         /// <summary>
         /// Adds a JOIN to the query with a schema-based table
         /// </summary>
-        public CompositeJoin<TRoot, TJoin, TResult> Join<TJoin>(
+        public CompositeJoin<TRoot, TJoin> Join<TJoin>(
             DataSchema schema,
             Expression<Func<TRoot, TJoin, bool>> joinCondition,
             JoinType joinType = JoinType.Inner)
@@ -183,19 +183,19 @@ namespace ExpressionToSql.Composite
         /// <summary>
         /// Adds a WHERE clause to the query with root table only
         /// </summary>
-        public CompositeWhere<TRoot, TResult> Where(Expression<Func<TRoot, bool>> predicate)
+        public CompositeWhere<TRoot> Where(Expression<Func<TRoot, bool>> predicate)
         {
-            return new CompositeWhere<TRoot, TResult>(this, predicate);
+            return new CompositeWhere<TRoot>(this, predicate);
         }
     }
     
     /// <summary>
     /// Represents a JOIN chain with one previous join
     /// </summary>
-    public class CompositeJoin<TRoot, TJoin1, TResult> : CompositeJoinBase<TRoot, TResult>
+    public class CompositeJoin<TRoot, TJoin1> : CompositeJoinBase<TRoot>
     {
-        internal CompositeJoin(CompositeJoinBase<TRoot, TResult> baseJoin)
-            : base(baseJoin._baseSelect)
+        internal CompositeJoin(CompositeJoinBase<TRoot> baseJoin)
+            : base(baseJoin._baseQuery)
         {
             CopyEntityTypesFrom(baseJoin);
             _joins.AddRange(baseJoin._joins);
@@ -204,13 +204,13 @@ namespace ExpressionToSql.Composite
         /// <summary>
         /// Adds a subsequent JOIN to the query
         /// </summary>
-        public CompositeJoin<TRoot, TJoin1, TJoin2, TResult> Join<TJoin2>(
+        public CompositeJoin<TRoot, TJoin1, TJoin2> Join<TJoin2>(
             Table joinTable,
             Expression<Func<TJoin1, TJoin2, bool>> joinCondition, 
             JoinType joinType = JoinType.Inner)
         {
             // First join should be established at this point
-            var result = new CompositeJoin<TRoot, TJoin1, TJoin2, TResult>(this);
+            var result = new CompositeJoin<TRoot, TJoin1, TJoin2>(this);
             result._joins.Add(new JoinInfo<TJoin1, TJoin2>(joinTable, joinCondition, joinType));
             return result;
         }
@@ -218,7 +218,7 @@ namespace ExpressionToSql.Composite
         /// <summary>
         /// Adds a subsequent JOIN to the query with a schema-based table
         /// </summary>
-        public CompositeJoin<TRoot, TJoin1, TJoin2, TResult> Join<TJoin2>(
+        public CompositeJoin<TRoot, TJoin1, TJoin2> Join<TJoin2>(
             DataSchema schema,
             Expression<Func<TJoin1, TJoin2, bool>> joinCondition,
             JoinType joinType = JoinType.Inner)
@@ -230,27 +230,27 @@ namespace ExpressionToSql.Composite
         /// <summary>
         /// Adds a WHERE clause to the query with root table only
         /// </summary>
-        public CompositeWhere<TRoot, TResult> Where(Expression<Func<TRoot, bool>> predicate)
+        public CompositeWhere<TRoot> Where(Expression<Func<TRoot, bool>> predicate)
         {
-            return new CompositeWhere<TRoot, TResult>(this, predicate);
+            return new CompositeWhere<TRoot>(this, predicate);
         }
         
         /// <summary>
         /// Adds a WHERE clause to the query with root and one joined table
         /// </summary>
-        public CompositeWhere<TRoot, TJoin1, TResult> Where(Expression<Func<TRoot, TJoin1, bool>> predicate)
+        public CompositeWhere<TRoot, TJoin1> Where(Expression<Func<TRoot, TJoin1, bool>> predicate)
         {
-            return new CompositeWhere<TRoot, TJoin1, TResult>(this, predicate);
+            return new CompositeWhere<TRoot, TJoin1>(this, predicate);
         }
     }
     
     /// <summary>
     /// Represents a JOIN chain with two previous joins
     /// </summary>
-    public class CompositeJoin<TRoot, TJoin1, TJoin2, TResult> : CompositeJoinBase<TRoot, TResult>
+    public class CompositeJoin<TRoot, TJoin1, TJoin2> : CompositeJoinBase<TRoot>
     {
-        internal CompositeJoin(CompositeJoinBase<TRoot, TResult> baseJoin)
-            : base(baseJoin._baseSelect)
+        internal CompositeJoin(CompositeJoinBase<TRoot> baseJoin)
+            : base(baseJoin._baseQuery)
         {
             CopyEntityTypesFrom(baseJoin);
             _joins.AddRange(baseJoin._joins);
@@ -259,25 +259,70 @@ namespace ExpressionToSql.Composite
         /// <summary>
         /// Adds a WHERE clause to the query with root table only
         /// </summary>
-        public CompositeWhere<TRoot, TResult> Where(Expression<Func<TRoot, bool>> predicate)
+        public CompositeWhere<TRoot> Where(Expression<Func<TRoot, bool>> predicate)
         {
-            return new CompositeWhere<TRoot, TResult>(this, predicate);
+            return new CompositeWhere<TRoot>(this, predicate);
         }
         
         /// <summary>
         /// Adds a WHERE clause to the query with root and one joined table
         /// </summary>
-        public CompositeWhere<TRoot, TJoin1, TResult> Where(Expression<Func<TRoot, TJoin1, bool>> predicate)
+        public CompositeWhere<TRoot, TJoin1> Where(Expression<Func<TRoot, TJoin1, bool>> predicate)
         {
-            return new CompositeWhere<TRoot, TJoin1, TResult>(this, predicate);
+            return new CompositeWhere<TRoot, TJoin1>(this, predicate);
         }
         
         /// <summary>
         /// Adds a WHERE clause to the query with root and two joined tables
         /// </summary>
-        public CompositeWhere<TRoot, TJoin1, TJoin2, TResult> Where(Expression<Func<TRoot, TJoin1, TJoin2, bool>> predicate)
+        public CompositeWhere<TRoot, TJoin1, TJoin2> Where(Expression<Func<TRoot, TJoin1, TJoin2, bool>> predicate)
         {
-            return new CompositeWhere<TRoot, TJoin1, TJoin2, TResult>(this, predicate);
+            return new CompositeWhere<TRoot, TJoin1, TJoin2>(this, predicate);
+        }
+    }
+    
+    /// <summary>
+    /// Represents a JOIN chain with three previous joins
+    /// </summary>
+    public class CompositeJoin<TRoot, TJoin1, TJoin2, TJoin3> : CompositeJoinBase<TRoot>
+    {
+        internal CompositeJoin(CompositeJoinBase<TRoot> baseJoin)
+            : base(baseJoin._baseQuery)
+        {
+            CopyEntityTypesFrom(baseJoin);
+            _joins.AddRange(baseJoin._joins);
+        }
+        
+        /// <summary>
+        /// Adds a WHERE clause to the query with root table only
+        /// </summary>
+        public CompositeWhere<TRoot> Where(Expression<Func<TRoot, bool>> predicate)
+        {
+            return new CompositeWhere<TRoot>(this, predicate);
+        }
+        
+        /// <summary>
+        /// Adds a WHERE clause to the query with root and one joined table
+        /// </summary>
+        public CompositeWhere<TRoot, TJoin1> Where(Expression<Func<TRoot, TJoin1, bool>> predicate)
+        {
+            return new CompositeWhere<TRoot, TJoin1>(this, predicate);
+        }
+        
+        /// <summary>
+        /// Adds a WHERE clause to the query with root and two joined tables
+        /// </summary>
+        public CompositeWhere<TRoot, TJoin1, TJoin2> Where(Expression<Func<TRoot, TJoin1, TJoin2, bool>> predicate)
+        {
+            return new CompositeWhere<TRoot, TJoin1, TJoin2>(this, predicate);
+        }
+        
+        /// <summary>
+        /// Adds a WHERE clause to the query with root and three joined tables
+        /// </summary>
+        public CompositeWhere<TRoot, TJoin1, TJoin2, TJoin3> Where(Expression<Func<TRoot, TJoin1, TJoin2, TJoin3, bool>> predicate)
+        {
+            return new CompositeWhere<TRoot, TJoin1, TJoin2, TJoin3>(this, predicate);
         }
     }
 } 

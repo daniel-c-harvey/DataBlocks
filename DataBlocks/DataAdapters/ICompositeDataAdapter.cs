@@ -8,7 +8,7 @@ public interface ICompositeDataAdapter<TCompositeModel, TDataModel, TLinkModel, 
     where TDataModel : IModel
     where TLinkDataModel : IModel
     where TTargetDataModel : IModel
-    where TCompositeModel : ICompositeModel<TCompositeModel, TDataModel, TLinkDataModel>
+    where TCompositeModel : ICompositeModel<TCompositeModel, TTargetModel, TDataModel, TLinkDataModel, TTargetDataModel>
     where TLinkModel : ILinkModel<TLinkModel, TLinkDataModel, TTargetDataModel>
     where TTargetModel : IConstituentModel<TTargetDataModel>
 {

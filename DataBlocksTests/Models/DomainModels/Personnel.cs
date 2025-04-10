@@ -2,13 +2,15 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using DataBlocks.DataAccess;
 using DataBlocks.DataAccess.Postgres;
 using ExpressionToSql;
+using ScheMigrator.Migrations;
 
 namespace DataBlocksTests.Models.DomainModels;
 
-public class Personnel : ICompositeModel<Personnel, Models.Personnel, Models.PersonnelContact>
+public class Personnel : ICompositeModel<Personnel, Contact, Models.Personnel, Models.PersonnelContact, Models.Contact>
 {
     public long ID { get; set; }
     public string FirstName { get; set; }
@@ -43,7 +45,23 @@ public class Personnel : ICompositeModel<Personnel, Models.Personnel, Models.Per
     public IList<Contact> Contacts { get; set; } = new List<Contact>();
     
     // ICompositeModel implementation
-
     public static Expression<Func<Models.Personnel, Models.PersonnelContact, bool>> Predicate =>
         (p, pc) => p.ID == pc.PersonnelId;
+
+    public static Func<Personnel, Contact, Personnel> GetMap()
+    {
+        Dictionary<long, Personnel> map = new Dictionary<long, Personnel>();
+        return (personnel, contact) =>
+        {
+            var personnelModel = map.GetValueOrDefault(personnel.ID, personnel);
+            map.TryAdd(personnel.ID, personnel);
+            personnelModel.Contacts.Add(contact);
+            return personnelModel;
+        };
+    }
+
+    public static string SplitOn => 
+        typeof(Models.Contact).GetProperty(nameof(Models.Contact.ID))
+            ?.GetCustomAttribute<ScheKeyAttribute>()?.FieldName 
+        ?? throw new Exception("Contact schema key field name not found");
 }

@@ -9,7 +9,7 @@ public abstract class CompositeDataAdapter<TDatabase, TDataAccess, TQueryBuilder
     where TDatabase : class
     where TDataAccess : IDataAccess<TDatabase>
     where TQueryBuilder : ICompositeQueryBuilder<TDatabase>
-    where TCompositeModel : ICompositeModel<TCompositeModel, TDataModel, TLinkDataModel>
+    where TCompositeModel : ICompositeModel<TCompositeModel, TTargetModel, TDataModel, TLinkDataModel, TTargetDataModel>
     where TLinkModel : ILinkModel<TLinkModel, TLinkDataModel, TTargetDataModel>
     where TTargetModel : IConstituentModel<TTargetDataModel>
     where TDataModel : IModel

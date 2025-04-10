@@ -7,10 +7,11 @@ namespace DataBlocks.DataAdapters
 {
     public static class CompositeDataAdapterFactory
     {
-        public static ICompositeDataAdapter<TCompositeModel, TDataModel, TLinkModel, TLinkDataModel, TTargetModel, TTargetDataModel> Create<TDatabase, TCompositeModel, TDataModel, TLinkModel, TLinkDataModel, TTargetModel, TTargetDataModel>(
+        public static ICompositeDataAdapter<TCompositeModel, TDataModel, TLinkModel, TLinkDataModel, TTargetModel, TTargetDataModel> 
+        Create<TDatabase, TCompositeModel, TDataModel, TLinkModel, TLinkDataModel, TTargetModel, TTargetDataModel>(
             IDataAccess<TDatabase> dataAccess, 
             ICompositeQueryBuilder<TDatabase> queryBuilder)
-            where TCompositeModel : ICompositeModel<TCompositeModel, TDataModel, TLinkDataModel>
+            where TCompositeModel : ICompositeModel<TCompositeModel, TTargetModel, TDataModel, TLinkDataModel, TTargetDataModel>
             where TLinkModel : ILinkModel<TLinkModel, TLinkDataModel, TTargetDataModel>
             where TTargetModel : IConstituentModel<TTargetDataModel>
             where TDataModel : IModel

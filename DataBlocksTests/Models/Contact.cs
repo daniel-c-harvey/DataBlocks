@@ -4,7 +4,7 @@ using ScheMigrator.Migrations;
 namespace DataBlocksTests.Models
 {
     [ScheModel]
-    public class Contact : IModel
+    public record Contact : IModel
     {
         public static DataSchema Schema { get; } = DataSchema.Create<Contact>("test-schema");
 

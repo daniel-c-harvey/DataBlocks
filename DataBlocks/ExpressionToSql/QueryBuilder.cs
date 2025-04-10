@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 namespace ExpressionToSql
 {
     using System.Text;
@@ -21,10 +23,6 @@ namespace ExpressionToSql
 
         public QueryBuilder(StringBuilder sb, ISqlDialect dialect, Query query)
         {
-            if (sb.Length == 0)
-            {
-                sb.Append("SELECT");
-            }
             _sb = sb;
             _dialect = dialect;
             _query = query;
@@ -53,40 +51,66 @@ namespace ExpressionToSql
             return this;
         }
 
-        public QueryBuilder AddParameter(string parameterName)
+        public QueryBuilder AddParameter(string parameterName, bool prepend = false)
         {
-            _sb.Append(" ").Append(_dialect.FormatParameter(parameterName));
+            var tempSB = new StringBuilder();
+            tempSB.Append(" ").Append(_dialect.FormatParameter(parameterName));
+            if (prepend)
+                _sb.Insert(0, tempSB);
+            else
+                _sb.Append(tempSB);
+            
             return this;
         }
 
-        public QueryBuilder AddParameterWithValue(string parameterName, object value)
+        public QueryBuilder AddParameterWithValue(string parameterName, object value, bool prepend = false)
         {
-            _sb.Append(" ").Append(_dialect.FormatParameter(parameterName));
+            if (prepend)
+            {
+                var tempSB = new StringBuilder();
+                tempSB.Append(" ").Append(_dialect.FormatParameter(parameterName));
+                _sb.Insert(0, tempSB);
+            }
+            else
+            {
+                _sb.Append(" ").Append(_dialect.FormatParameter(parameterName));
+            }
+            
             _query.Parameters[parameterName] = value;
             return this;
         }
 
-        public QueryBuilder AddAttribute(string attributeName, string columnAliasName = "", string tableAliasName = TableAliasName)
+        public QueryBuilder AddAttribute(string attributeName, string columnAliasName = "", string tableAliasName = TableAliasName, bool prepend = false)
         {
-            _sb.Append(" ");
+            var tempSB = new StringBuilder();
+            tempSB.Append(" ");
 
             if (!string.IsNullOrWhiteSpace(tableAliasName))
             {
-                _sb.Append(tableAliasName).Append(".");
+                tempSB.Append(tableAliasName).Append(".");
             }
 
-            _sb.Append(_dialect.EscapeIdentifier(attributeName));
+            tempSB.Append(_dialect.EscapeIdentifier(attributeName));
 
             if (!string.IsNullOrWhiteSpace(columnAliasName))
             {
-                _sb.Append(" AS ").Append(columnAliasName);
+                tempSB.Append(" AS ").Append(columnAliasName);
             }
+            
+            if (prepend)
+                _sb.Insert(0, tempSB.ToString());
+            else
+                _sb.Append(tempSB.ToString());
+            
             return this;
         }
 
-        public QueryBuilder AddValue(object value)
+        public QueryBuilder AddValue(object value, bool prepend = false)
         {
-            _sb.Append(" ").Append(value);
+            if (prepend)
+                _sb.Insert(0, value).Insert(0, " "); 
+            else
+                _sb.Append(" ").Append(value);
             return this;
         }
         
@@ -96,9 +120,59 @@ namespace ExpressionToSql
         //     return this;
         // }
 
-        public QueryBuilder AddSeparator()
+        public QueryBuilder AddSeparator(bool prepend = false)
         {
-            _sb.Append(",");
+            if (prepend)
+            {
+                // When prepending, insert the comma at index 0
+                _sb.Insert(0, ",");
+            }
+            else
+            {
+                // When appending, just add the comma at the end
+                _sb.Append(',');
+            }
+            return this;
+        }
+
+        // Additional separator handling methods for clarity
+        public QueryBuilder PrependSeparator()
+        {
+            _sb.Insert(0, ",");
+            return this;
+        }
+
+        public QueryBuilder AppendSeparator()
+        {
+            _sb.Append(',');
+            return this;
+        }
+
+        public QueryBuilder RemoveLastSeparator()
+        {
+            if (_sb.Length > 0 && _sb[_sb.Length - 1] == ',')
+            {
+                _sb.Length -= 1;
+            }
+            return this;
+        }
+
+        public QueryBuilder RemoveFirstSeparator()
+        {
+            if (_sb.Length > 0 && _sb[0] == ',')
+            {
+                _sb.Remove(0, 1);
+            }
+            return this;
+        }
+
+        // Add method to insert text at a specific position
+        public QueryBuilder InsertText(int position, string text)
+        {
+            if (position >= 0 && position <= _sb.Length)
+            {
+                _sb.Insert(position, text);
+            }
             return this;
         }
 
@@ -245,6 +319,12 @@ namespace ExpressionToSql
             return this;
         }
 
+        public QueryBuilder PrependText(string text)
+        {
+            _sb.Insert(0, text);
+            return this;
+        }
+
         // Get next available alias
         public string GetNextAlias() 
         {
@@ -334,6 +414,49 @@ namespace ExpressionToSql
             // Create composite key from name and type
             string key = $"{paramName}_{paramType.FullName}";
             return _queryParameters.Contains(key);
+        }
+
+        public QueryBuilder PrependSelect()
+        {
+            _sb.Insert(0, "SELECT");
+            return this;
+        }
+        
+        public QueryBuilder PrependSelectExpression(Expression e, Type t)
+        {
+            switch (e.NodeType)
+            {
+                case ExpressionType.Constant:
+                    var c = (ConstantExpression) e;
+                    AddValue(c.Value, prepend: true);
+                    break;
+                case ExpressionType.MemberAccess:
+                    var m = (MemberExpression) e;
+                    PrependExpression(m, t);
+                    break;
+                default:
+                    throw new NotImplementedException($"Expression type {e.NodeType} not supported in PrependSelectExpression: {e}");
+            }
+            return this;
+        }
+
+        public void PrependExpression(MemberExpression m, Type t)
+        {
+            if (m.Member.DeclaringType.IsAssignableFrom(t))
+            {
+                // Use the centralized utility function to get the field name
+                string fieldName = SqlTypeUtils.ResolveFieldName(m.Member, t);
+                if (fieldName != m.Member.Name)
+                {
+                    AddAttribute(fieldName, m.Member.Name, prepend: true);
+                    return;
+                }
+                AddAttribute(m.Member.Name, prepend: true);
+            }
+            else
+            {
+                AddParameter(m.Member.Name, prepend: true);
+            }
         }
     }
 }

@@ -6,11 +6,16 @@ using DataBlocks.ExpressionToSql.Expressions;
 
 namespace ExpressionToSql.Composite
 {
+    public abstract class CompositeSelectBase : Query
+    {
+        protected CompositeSelectBase(ISqlDialect dialect) : base(dialect) { }
+    }
+    
     /// <summary>
     /// A composite Select query that works with multiple table joins
     /// and comes at the end of a query chain
     /// </summary>
-    public class CompositeSelect<TRoot, TResult> : Query
+    public class CompositeSelect<TRoot, TResult> : CompositeSelectBase
     {
         private readonly Expression<Func<TRoot, TResult>> _selector;
         private readonly Query _baseQuery;
@@ -57,7 +62,7 @@ namespace ExpressionToSql.Composite
     /// A composite Select query that works with multiple table joins
     /// and comes at the end of a query chain with one joined table
     /// </summary>
-    public class CompositeSelect<TRoot, TJoin, TResult> : Query
+    public class CompositeSelect<TRoot, TJoin, TResult> : CompositeSelectBase
     {
         private readonly Expression<Func<TRoot, TJoin, TResult>> _selector;
         private readonly Query _baseQuery;
@@ -105,7 +110,7 @@ namespace ExpressionToSql.Composite
     /// A composite Select query that works with multiple table joins
     /// and comes at the end of a query chain with two joined tables
     /// </summary>
-    public class CompositeSelect<TRoot, TJoin1, TJoin2, TResult> : Query
+    public class CompositeSelect<TRoot, TJoin1, TJoin2, TResult> : CompositeSelectBase
     {
         private readonly Expression<Func<TRoot, TJoin1, TJoin2, TResult>> _selector;
         private readonly Query _baseQuery;
@@ -154,7 +159,7 @@ namespace ExpressionToSql.Composite
     /// <summary>
     /// A composite Select query that works with three joined tables
     /// </summary>
-    public class CompositeSelect<TRoot, TJoin1, TJoin2, TJoin3, TResult> : Query
+    public class CompositeSelect<TRoot, TJoin1, TJoin2, TJoin3, TResult> : CompositeSelectBase
     {
         private readonly Expression<Func<TRoot, TJoin1, TJoin2, TJoin3, TResult>> _selector;
         private readonly Query _baseQuery;

@@ -7,6 +7,27 @@ namespace ExpressionToSql
     using System;
     using ExpressionToSql.Utils;
 
+    /// <summary>
+    /// Tracks the state of the query builder to know how to format SQL
+    /// </summary>
+    public enum QueryBuilderState
+    {
+        /// <summary>
+        /// Initial state, no SELECT has been added
+        /// </summary>
+        Initial,
+        
+        /// <summary>
+        /// A subquery has been added, no SELECT has been prepended
+        /// </summary>
+        Subquery,
+        
+        /// <summary>
+        /// A SELECT has been prepended
+        /// </summary>
+        SelectPrepended
+    }
+
     public class QueryBuilder
     {
         private readonly StringBuilder _sb;
@@ -14,6 +35,9 @@ namespace ExpressionToSql
         public readonly Query _query;
         private bool _firstCondition = true;
         public const string TableAliasName = "a";
+        
+        // Track the state of the query builder
+        private QueryBuilderState _state = QueryBuilderState.Initial;
 
         // Track current aliases
         private Dictionary<Type, string> _tableAliases = new Dictionary<Type, string>();
@@ -416,12 +440,48 @@ namespace ExpressionToSql
             return _queryParameters.Contains(key);
         }
 
-        public QueryBuilder PrependSelect()
+        /// <summary>
+        /// Adds a subquery to the FROM clause with the given alias
+        /// </summary>
+        /// <param name="subquerySql">The SQL text of the subquery</param>
+        /// <param name="alias">The alias for the subquery</param>
+        /// <returns>The updated QueryBuilder</returns>
+        public QueryBuilder AddSubquery(string subquerySql, string alias)
         {
-            _sb.Insert(0, "SELECT");
+            _sb.Append("FROM (");
+            _sb.Append(subquerySql);
+            _sb.Append(")");
+
+            if (!string.IsNullOrWhiteSpace(alias))
+            {
+                _sb.Append(" AS ").Append(alias);
+            }
+            
+            // Update state to indicate a subquery has been added
+            _state = QueryBuilderState.Subquery;
+            
             return this;
         }
         
+        /// <summary>
+        /// Prepends a SELECT statement to the query
+        /// </summary>
+        public QueryBuilder PrependSelect()
+        {
+            if (_state == QueryBuilderState.SelectPrepended)
+            {
+                // SELECT has already been prepended, no need to do it again
+                return this;
+            }
+
+            _sb.Insert(0, "SELECT ");
+            
+            // Update state to indicate SELECT has been prepended
+            _state = QueryBuilderState.SelectPrepended;
+            
+            return this;
+        }
+
         public QueryBuilder PrependSelectExpression(Expression e, Type t)
         {
             switch (e.NodeType)

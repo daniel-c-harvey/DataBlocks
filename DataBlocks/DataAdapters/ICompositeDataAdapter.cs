@@ -13,7 +13,7 @@ public interface ICompositeDataAdapter<TCompositeModel, TDataModel, TLinkModel, 
     where TTargetModel : IConstituentModel<TTargetDataModel>
 {
     Task<ResultContainer<IEnumerable<TCompositeModel>>> GetAll();
-    Task<ResultContainer<IEnumerable<TCompositeModel>>> GetPage(int page, int pageSize);
+    Task<ResultContainer<IEnumerable<TCompositeModel>>> GetPage(int pageIndex, int pageSize);
     Task<ResultContainer<TCompositeModel>> GetByID(long id);
     Task<ResultContainer<IEnumerable<TCompositeModel>>> GetByPredicate(Expression<Func<TDataModel, TTargetDataModel, bool>> predicate);
 }

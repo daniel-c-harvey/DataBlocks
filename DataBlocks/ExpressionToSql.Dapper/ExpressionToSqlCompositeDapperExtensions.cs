@@ -21,6 +21,11 @@ public static class ExpressionToSqlCompositeDapperExtensions
         return await QueryAsync(cnn, sql, map, param, transaction, commandTimeout, commandType, splitOn);
     }
     
+    public static async Task<IEnumerable<TComposite>> QueryAsync<TFirst, TSecond, TThird, TComposite, TTarget, TResult>(this IDbConnection cnn, CompositePage<TFirst, TSecond, TThird, TResult> sql, Func<TComposite, TTarget, TComposite> map, string splitOn, object param = null, IDbTransaction transaction = null, int? commandTimeout = null, CommandType? commandType = null)
+    {
+        return await QueryAsync(cnn, sql, map, param, transaction, commandTimeout, commandType, splitOn);
+    }
+    
     private static async Task<IEnumerable<TReturn>> QueryAsync<TFirst, TSecond, TReturn>(IDbConnection cnn, Query sql, Func<TFirst, TSecond, TReturn> map, object param, IDbTransaction transaction, int? commandTimeout, CommandType? commandType, string splitOn)
     {
         var query = sql.ToString();

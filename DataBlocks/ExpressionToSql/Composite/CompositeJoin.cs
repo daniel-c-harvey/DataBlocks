@@ -63,6 +63,7 @@ namespace ExpressionToSql.Composite
         }
         
         public readonly CompositeFrom<TRoot> _baseQuery;
+        public readonly CompositePageByRootBase<TRoot> _pageByRootBaseQuery;
         public readonly List<IJoinInfo> _joins = new List<IJoinInfo>();
         
         internal CompositeJoinBase(CompositeFrom<TRoot> baseQuery)
@@ -70,6 +71,13 @@ namespace ExpressionToSql.Composite
         {
             _baseQuery = baseQuery;
             CopyEntityTypesFrom(baseQuery);
+        }
+        
+        internal CompositeJoinBase(CompositePageByRootBase<TRoot> pageByRootBaseQuery)
+            : base(pageByRootBaseQuery.Dialect)
+        {
+            _pageByRootBaseQuery = pageByRootBaseQuery;
+            CopyEntityTypesFrom(pageByRootBaseQuery);
         }
         
         /// <summary>
@@ -117,8 +125,19 @@ namespace ExpressionToSql.Composite
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
         {
-            // Build the base select query
-            _baseQuery.ToSql(qb);
+            // Build the base query first
+            if (_baseQuery != null)
+            {
+                _baseQuery.ToSql(qb);
+            }
+            else if (_pageByRootBaseQuery != null)
+            {
+                _pageByRootBaseQuery.ToSql(qb);
+            }
+            else
+            {
+                throw new InvalidOperationException("No base query available in CompositeJoinBase");
+            }
             
             // Apply entity types to ensure aliases are properly registered
             ApplyEntityTypesToQueryBuilder(qb);
@@ -151,6 +170,11 @@ namespace ExpressionToSql.Composite
     {
         internal CompositeJoin(CompositeFrom<TRoot> baseQuery)
             : base(baseQuery)
+        {
+        }
+        
+        internal CompositeJoin(CompositePageByRootBase<TRoot> pageByRootBaseQuery)
+            : base(pageByRootBaseQuery)
         {
         }
         

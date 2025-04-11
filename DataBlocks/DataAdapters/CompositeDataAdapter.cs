@@ -39,12 +39,12 @@ public abstract class CompositeDataAdapter<TDatabase, TDataAccess, TQueryBuilder
         }
     }
 
-    public virtual async Task<ResultContainer<IEnumerable<TCompositeModel>>> GetPage(int page, int pageSize)
+    public virtual async Task<ResultContainer<IEnumerable<TCompositeModel>>> GetPage(int pageIndex, int pageSize)
     {
         var modelResults = new ResultContainer<IEnumerable<TCompositeModel>>();
         try
         {
-            modelResults = await DataAccess.ExecQuery(QueryBuilder.BuildRetrieve<TCompositeModel, TDataModel, TLinkModel, TLinkDataModel, TTargetModel, TTargetDataModel>(page, pageSize));
+            modelResults = await DataAccess.ExecQuery(QueryBuilder.BuildRetrieve<TCompositeModel, TDataModel, TLinkModel, TLinkDataModel, TTargetModel, TTargetDataModel>(pageIndex, pageSize));
             return modelResults;
         }
         catch (Exception ex) 

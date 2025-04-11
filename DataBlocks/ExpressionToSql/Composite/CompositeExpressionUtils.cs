@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using DataBlocks.DataAccess;
 using DataBlocks.ExpressionToSql.Expressions;
 using ExpressionToSql.Utils;
@@ -237,7 +238,7 @@ namespace ExpressionToSql.Composite
                 if (binding.Expression.NodeType == ExpressionType.Parameter)
                 {
                     var param = (ParameterExpression)binding.Expression;
-                    Type paramType = DetermineParameterType(param, rootType, joinTypes);
+                    Type? paramType = DetermineParameterType(param, rootType, joinTypes);
                     
                     if (paramType != null)
                     {
@@ -271,7 +272,7 @@ namespace ExpressionToSql.Composite
         private static void ProcessMemberAccess(MemberExpression m, Type rootType, QueryBuilder qb, Type[] joinTypes, bool prepend)
         {
             // Check if this is from the root type or a joined type
-            string tableAlias = DetermineTableAlias(m, rootType, joinTypes);
+            string? tableAlias = DetermineTableAlias(m, rootType, joinTypes);
             
             if (tableAlias != null)
             {
@@ -304,10 +305,10 @@ namespace ExpressionToSql.Composite
             if (paramExpr.NodeType != ExpressionType.Parameter) return;
             
             var param = (ParameterExpression)paramExpr;
-            Type paramType = DetermineParameterType(param, rootType, joinTypes);
+            Type? paramType = DetermineParameterType(param, rootType, joinTypes);
             if (paramType == null) return;
             
-            string tableAlias = DetermineTableAliasForType(paramType, rootType, joinTypes);
+            string? tableAlias = DetermineTableAliasForType(paramType, rootType, joinTypes);
             if (tableAlias == null) return;
             
             // Get schema-annotated properties
@@ -347,50 +348,52 @@ namespace ExpressionToSql.Composite
         }
         
         /// <summary>
-        /// Determine the proper table alias for a member expression
+        /// Determines the appropriate table alias for a member expression
         /// </summary>
-        private static string DetermineTableAlias(MemberExpression m, Type rootType, Type[] joinTypes)
+        private static string? DetermineTableAlias(MemberExpression m, Type rootType, Type[] joinTypes)
         {
-            if (m.Member.DeclaringType != null) 
+            if (m.Expression?.NodeType == ExpressionType.Parameter)
             {
-                if (m.Member.DeclaringType.IsAssignableFrom(rootType))
+                var paramExpr = (ParameterExpression)m.Expression;
+                return DetermineTableAliasForType(paramExpr.Type, rootType, joinTypes);
+            }
+            
+            // Handle nested properties by using the base property's declared type
+            if (m.Expression?.NodeType == ExpressionType.MemberAccess)
+            {
+                var parentMember = (MemberExpression)m.Expression;
+                if (parentMember.Member is PropertyInfo prop)
                 {
-                    return "a"; // Root table alias
-                }
-                
-                if (joinTypes != null)
-                {
-                    for (int i = 0; i < joinTypes.Length; i++)
-                    {
-                        if (joinTypes[i] != null && m.Member.DeclaringType.IsAssignableFrom(joinTypes[i]))
-                        {
-                            return ((char)('b' + i)).ToString(); // Join table alias (b, c, d, etc.)
-                        }
-                    }
+                    return DetermineTableAliasForType(prop.PropertyType, rootType, joinTypes);
                 }
             }
             
-            return null; // No table alias could be determined
+            // Default to root type alias if we can't determine
+            return QueryBuilder.TableAliasName;
         }
         
         /// <summary>
-        /// Determine the proper table alias for a given type
+        /// Determines the appropriate table alias for a type based on position in join chain
         /// </summary>
-        private static string DetermineTableAliasForType(Type type, Type rootType, Type[] joinTypes)
+        private static string? DetermineTableAliasForType(Type type, Type rootType, Type[] joinTypes)
         {
+            // Special case: if a type is mapped to a subquery alias, QueryBuilder will use that alias
+            // We don't need special handling here as the QueryBuilder.GetAliasForType will return the correct
+            // subquery alias if the type is registered with a subquery alias
+            
             if (type == rootType)
             {
-                return "a"; // Root table alias
+                // For root type, use the primary alias - could be 'a' or a subquery alias like 'subq'
+                return QueryBuilder.TableAliasName;
             }
             
-            if (joinTypes != null)
+            // For join types, determine the appropriate letter
+            for (int i = 0; i < joinTypes.Length; i++)
             {
-                for (int i = 0; i < joinTypes.Length; i++)
+                if (type == joinTypes[i])
                 {
-                    if (joinTypes[i] == type)
-                    {
-                        return ((char)('b' + i)).ToString(); // Join table alias (b, c, d, etc.)
-                    }
+                    char c = (char)('b' + i);
+                    return c.ToString();
                 }
             }
             
@@ -400,7 +403,7 @@ namespace ExpressionToSql.Composite
         /// <summary>
         /// Determine the actual type of a parameter by comparing with root and join types
         /// </summary>
-        private static Type DetermineParameterType(ParameterExpression param, Type rootType, Type[] joinTypes)
+        private static Type? DetermineParameterType(ParameterExpression param, Type rootType, Type[] joinTypes)
         {
             if (param.Type == rootType)
             {
@@ -413,6 +416,50 @@ namespace ExpressionToSql.Composite
             }
             
             return null;
+        }
+
+        /// <summary>
+        /// Helper method to create a PageByRoot query that paginates at the root table level
+        /// </summary>
+        /// <typeparam name="TRoot">The root table entity type</typeparam>
+        /// <param name="rootTable">The root table</param>
+        /// <param name="pageIndex">Zero-based page index</param>
+        /// <param name="pageSize">Number of records per page</param>
+        /// <param name="dialect">The SQL dialect to use</param>
+        /// <returns>A PageByRoot query ready for further composition</returns>
+        public static CompositePageByRoot<TRoot> CreatePageByRootQuery<TRoot>(
+            Table rootTable, 
+            int pageIndex, 
+            int pageSize, 
+            ISqlDialect dialect)
+        {
+            // Create the base FROM query
+            var fromQuery = new CompositeFrom<TRoot>(rootTable, dialect);
+            
+            // Apply PageByRoot to create a subquery-based pagination
+            return fromQuery.PageByRoot(pageIndex, pageSize);
+        }
+        
+        /// <summary>
+        /// Helper method to create a PageByRoot query with a schema-based table
+        /// </summary>
+        /// <typeparam name="TRoot">The root table entity type</typeparam>
+        /// <param name="schema">The schema definition</param>
+        /// <param name="pageIndex">Zero-based page index</param>
+        /// <param name="pageSize">Number of records per page</param>
+        /// <param name="dialect">The SQL dialect to use</param>
+        /// <returns>A PageByRoot query ready for further composition</returns>
+        public static CompositePageByRoot<TRoot> CreatePageByRootQuery<TRoot>(
+            DataSchema schema, 
+            int pageIndex, 
+            int pageSize, 
+            ISqlDialect dialect)
+        {
+            // Create a table from the schema
+            var rootTable = new Table<TRoot> { Name = schema.CollectionName, Schema = schema.SchemaName };
+            
+            // Delegate to the main implementation
+            return CreatePageByRootQuery<TRoot>(rootTable, pageIndex, pageSize, dialect);
         }
     }
 } 

@@ -20,7 +20,7 @@ public class JoinTests
         new() { ID = 2, FirstName = "Jane", LastName = "Smith", Gender = "F", MemberNumber = "456" },
         new() { ID = 3, FirstName = "John", LastName = "Doe", Gender = "M", MemberNumber = "789" },
         new() { ID = 4, FirstName = "Alice", LastName = "Johnson", Gender = "F", MemberNumber = "101" },
-        new() { ID = 5, FirstName = "Bob", LastName = "Brown", Gender = "M", MemberNumber = "102" }
+        new() { ID = 5, FirstName = "John", LastName = "Brown", Gender = "M", MemberNumber = "102" }
     };
 
     private static IList<Models.Contact> contacts = new List<Models.Contact>()
@@ -33,7 +33,7 @@ public class JoinTests
         new() { ID = 6, ContactType = "Secondary", Phone = "4567891230" },
         new() { ID = 7, ContactType = "Primary", Phone = "1234567890", Email = "alice@example.com", AddressLine1 = "101 Main St, Anytown, USA" },
         new() { ID = 8, ContactType = "Secondary", Phone = "4567891230" },
-        new() { ID = 9, ContactType = "Primary", Phone = "1234567890", Email = "bob@example.com", AddressLine1 = "101 Main St, Anytown, USA" },
+        new() { ID = 9, ContactType = "Primary", Phone = "1234567890", Email = "john2@example.com", AddressLine1 = "101 Main St, Anytown, USA" },
         new() { ID = 10, ContactType = "Secondary", Phone = "4567891230" }
     };
 
@@ -156,7 +156,17 @@ public class JoinTests
     }
 
     [Test]
-    public static async Task ShouldQueryPersonnelWithContacts()
+    public static async Task ShouldQueryPersonnelWithContactsAll()
+    {
+        var result = await personnelAdapterComposite.GetAll();
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.Value, Is.Not.Null);
+        Assert.That(result.Value.Any(), Is.True);
+        Assert.That(result.Value.Count, Is.EqualTo(PERSONNEL_COUNT));
+    }
+
+    [Test]
+    public static async Task ShouldQueryPersonnelWithContactsByID()
     {
         var result = await personnelAdapterComposite.GetByID(personnel.First().ID);
         Assert.That(result.Success, Is.True);
@@ -164,12 +174,31 @@ public class JoinTests
         Assert.That(result.Value.ID, Is.EqualTo(personnel.First().ID));
         Assert.That(result.Value.Contacts, Is.Not.Null);
         Assert.That(result.Value.Contacts, Is.Not.Empty);
+        Assert.That(result.Value.Contacts.Count(), Is.EqualTo(2));
+    }
+
+    [Test]
+    public static async Task ShouldQueryPersonnelWithContactsByFirstName()
+    {
+        var result = await personnelAdapterComposite.GetByPredicate((personnel, contact) => personnel.FirstName == "John");
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.Value, Is.Not.Null);
+        Assert.That(result.Value.Count(), Is.EqualTo(2));
+    }
+
+    [Test]
+    public static async Task ShouldQueryPersonnelWithContactsByPage()
+    {
+        var result = await personnelAdapterComposite.GetPage(0,3);
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.Value, Is.Not.Null);
+        Assert.That(result.Value.Count(), Is.EqualTo(3));
     }
 
     [OneTimeTearDown]
     public static async Task TearDown()
     {
-        if (personnelAdapter != null) personnel.ForEach(async p => await personnelAdapter.Delete(p));
+        if (personnelAdapter != null) personnel.ForEach(async p => await personnelAdapter.Delete(p)); 
         if (contactAdapter != null) contacts.ForEach(async c => await contactAdapter.Delete(c));
         if (personnelContactAdapter != null) personnelContacts.ForEach(async pc => await personnelContactAdapter.Delete(pc));
     }

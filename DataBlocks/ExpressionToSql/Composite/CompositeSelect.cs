@@ -31,11 +31,55 @@ namespace ExpressionToSql.Composite
             
             // Register the selector parameters for tracking
             RegisterExpressionParameter(selector);
+            
+            // Explicitly register all types used in this query
+            EnsureTypeRegistrations();
+        }
+        
+        private void EnsureTypeRegistrations()
+        {
+            // Make sure we have a registration for the root type
+            RegisterIfMissing(typeof(TRoot));
+        }
+        
+        private void RegisterIfMissing(Type type)
+        {
+            // Check if the type is already registered with an alias
+            bool found = false;
+            foreach (var pair in EntityTypes)
+            {
+                if (pair.Value == type)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            
+            // If not found, register with a default alias
+            if (!found)
+            {
+                // Use the type name as the basis for an alias
+                string alias = type.Name.ToLowerInvariant()[0].ToString();
+                
+                // Make sure this alias doesn't clash with an existing one
+                int suffix = 1;
+                string candidateAlias = alias;
+                while (EntityTypes.ContainsKey(candidateAlias))
+                {
+                    candidateAlias = $"{alias}{suffix++}";
+                }
+                
+                // Register the type with this alias
+                RegisterEntityType(candidateAlias, type);
+            }
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
         {
-            // First prepare a temporary buffer for the base query
+            // First register all expected type-to-alias mappings
+            RegisterExpectedTypes(qb);
+            
+            // Prepare a temporary buffer for the base query
             var tempBuilder = new StringBuilder();
             var tempQb = new QueryBuilder(tempBuilder, Dialect, _baseQuery);
             
@@ -44,6 +88,14 @@ namespace ExpressionToSql.Composite
             
             // Apply entity types to ensure aliases are registered
             ApplyEntityTypesToQueryBuilder(qb);
+            CopyParametersFromType(_baseQuery);
+            
+            // Ensure all entity types from the base query are also registered in our QueryBuilder
+            foreach (var kvp in _baseQuery.EntityTypes)
+            {
+                RegisterEntityType(kvp.Key, kvp.Value);
+                qb.RegisterTableAliasForType(kvp.Value, kvp.Key);
+            }
             
             // Add the base query to the main builder
             qb.Append(tempBuilder.ToString());
@@ -55,6 +107,49 @@ namespace ExpressionToSql.Composite
                 qb);
             
             return qb;
+        }
+        
+        private void RegisterExpectedTypes(QueryBuilder qb)
+        {
+            // Register all expected types with aliases
+            RegisterTypeWithAlias(qb, typeof(TRoot));
+        }
+        
+        private void RegisterTypeWithAlias(QueryBuilder qb, Type type)
+        {
+            // First check if we already have an alias for this type in our EntityTypes
+            string alias = null;
+            foreach (var pair in EntityTypes)
+            {
+                if (pair.Value == type)
+                {
+                    alias = pair.Key;
+                    break;
+                }
+            }
+            
+            // If we found an alias, register it with the QueryBuilder
+            if (!string.IsNullOrEmpty(alias))
+            {
+                qb.RegisterTableAliasForType(type, alias);
+            }
+            else
+            {
+                // Check if QueryBuilder already has an alias for this type
+                alias = qb.GetAliasForType(type);
+                
+                if (!string.IsNullOrEmpty(alias))
+                {
+                    // Register it in our EntityTypes
+                    RegisterEntityType(alias, type);
+                }
+                else
+                {
+                    // Create a new alias
+                    alias = qb.GetOrCreateAliasForType(type);
+                    RegisterEntityType(alias, type);
+                }
+            }
         }
     }
     
@@ -78,11 +173,56 @@ namespace ExpressionToSql.Composite
             
             // Register the selector parameters for tracking
             RegisterExpressionParameter(selector);
+            
+            // Explicitly register all types used in this query
+            EnsureTypeRegistrations();
+        }
+        
+        private void EnsureTypeRegistrations()
+        {
+            // Make sure we have a registration for each generic type parameter
+            RegisterIfMissing(typeof(TRoot));
+            RegisterIfMissing(typeof(TJoin));
+        }
+        
+        private void RegisterIfMissing(Type type)
+        {
+            // Check if the type is already registered with an alias
+            bool found = false;
+            foreach (var pair in EntityTypes)
+            {
+                if (pair.Value == type)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            
+            // If not found, register with a default alias
+            if (!found)
+            {
+                // Use the type name as the basis for an alias
+                string alias = type.Name.ToLowerInvariant()[0].ToString();
+                
+                // Make sure this alias doesn't clash with an existing one
+                int suffix = 1;
+                string candidateAlias = alias;
+                while (EntityTypes.ContainsKey(candidateAlias))
+                {
+                    candidateAlias = $"{alias}{suffix++}";
+                }
+                
+                // Register the type with this alias
+                RegisterEntityType(candidateAlias, type);
+            }
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
         {
-            // First prepare a temporary buffer for the base query
+            // First register all expected type-to-alias mappings
+            RegisterExpectedTypes(qb);
+            
+            // Prepare a temporary buffer for the base query
             var tempBuilder = new StringBuilder();
             var tempQb = new QueryBuilder(tempBuilder, Dialect, _baseQuery);
             
@@ -91,6 +231,14 @@ namespace ExpressionToSql.Composite
             
             // Apply entity types to ensure aliases are registered
             ApplyEntityTypesToQueryBuilder(qb);
+            CopyParametersFromType(_baseQuery);
+            
+            // Ensure all entity types from the base query are also registered in our QueryBuilder
+            foreach (var kvp in _baseQuery.EntityTypes)
+            {
+                RegisterEntityType(kvp.Key, kvp.Value);
+                qb.RegisterTableAliasForType(kvp.Value, kvp.Key);
+            }
             
             // Add the base query to the main builder
             qb.Append(tempBuilder.ToString());
@@ -103,6 +251,50 @@ namespace ExpressionToSql.Composite
                 typeof(TJoin)); // Pass the joined table type
             
             return qb;
+        }
+        
+        private void RegisterExpectedTypes(QueryBuilder qb)
+        {
+            // Register all expected types with aliases
+            RegisterTypeWithAlias(qb, typeof(TRoot));
+            RegisterTypeWithAlias(qb, typeof(TJoin));
+        }
+        
+        private void RegisterTypeWithAlias(QueryBuilder qb, Type type)
+        {
+            // First check if we already have an alias for this type in our EntityTypes
+            string alias = null;
+            foreach (var pair in EntityTypes)
+            {
+                if (pair.Value == type)
+                {
+                    alias = pair.Key;
+                    break;
+                }
+            }
+            
+            // If we found an alias, register it with the QueryBuilder
+            if (!string.IsNullOrEmpty(alias))
+            {
+                qb.RegisterTableAliasForType(type, alias);
+            }
+            else
+            {
+                // Check if QueryBuilder already has an alias for this type
+                alias = qb.GetAliasForType(type);
+                
+                if (!string.IsNullOrEmpty(alias))
+                {
+                    // Register it in our EntityTypes
+                    RegisterEntityType(alias, type);
+                }
+                else
+                {
+                    // Create a new alias
+                    alias = qb.GetOrCreateAliasForType(type);
+                    RegisterEntityType(alias, type);
+                }
+            }
         }
     }
     
@@ -126,12 +318,57 @@ namespace ExpressionToSql.Composite
             
             // Register the selector parameters for tracking
             RegisterExpressionParameter(selector);
+            
+            // Explicitly register all types used in this query to ensure alias consistency
+            EnsureTypeRegistrations();
         }
         
-
+        private void EnsureTypeRegistrations()
+        {
+            // Make sure we have a registration for each generic type parameter
+            RegisterIfMissing(typeof(TRoot));
+            RegisterIfMissing(typeof(TJoin1));
+            RegisterIfMissing(typeof(TJoin2));
+        }
+        
+        private void RegisterIfMissing(Type type)
+        {
+            // Check if the type is already registered with an alias
+            bool found = false;
+            foreach (var pair in EntityTypes)
+            {
+                if (pair.Value == type)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            
+            // If not found, register with a default alias
+            if (!found)
+            {
+                // Use the type name as the basis for an alias
+                string alias = type.Name.ToLowerInvariant()[0].ToString();
+                
+                // Make sure this alias doesn't clash with an existing one
+                int suffix = 1;
+                string candidateAlias = alias;
+                while (EntityTypes.ContainsKey(candidateAlias))
+                {
+                    candidateAlias = $"{alias}{suffix++}";
+                }
+                
+                // Register the type with this alias
+                RegisterEntityType(candidateAlias, type);
+            }
+        }
+        
         internal override QueryBuilder ToSql(QueryBuilder qb)
         {
-            // First prepare a temporary buffer for the base query
+            // First register all expected type-to-alias mappings before doing anything else
+            RegisterExpectedTypes(qb);
+            
+            // Now prepare a temporary buffer for the base query
             var tempBuilder = new StringBuilder();
             var tempQb = new QueryBuilder(tempBuilder, Dialect, _baseQuery);
             
@@ -141,6 +378,13 @@ namespace ExpressionToSql.Composite
             // Apply entity types to ensure aliases are registered
             ApplyEntityTypesToQueryBuilder(qb);
             CopyParametersFromType(_baseQuery);
+            
+            // Ensure all entity types from the base query are also registered in our QueryBuilder
+            foreach (var kvp in _baseQuery.EntityTypes)
+            {
+                RegisterEntityType(kvp.Key, kvp.Value);
+                qb.RegisterTableAliasForType(kvp.Value, kvp.Key);
+            }
             
             // Add the base query to the main builder
             qb.Append(tempBuilder.ToString());
@@ -154,10 +398,56 @@ namespace ExpressionToSql.Composite
             
             return qb;
         }
+        
+        private void RegisterExpectedTypes(QueryBuilder qb)
+        {
+            // Register all expected types with aliases
+            RegisterTypeWithAlias(qb, typeof(TRoot));
+            RegisterTypeWithAlias(qb, typeof(TJoin1));
+            RegisterTypeWithAlias(qb, typeof(TJoin2));
+        }
+        
+        private void RegisterTypeWithAlias(QueryBuilder qb, Type type)
+        {
+            // First check if we already have an alias for this type in our EntityTypes
+            string alias = null;
+            foreach (var pair in EntityTypes)
+            {
+                if (pair.Value == type)
+                {
+                    alias = pair.Key;
+                    break;
+                }
+            }
+            
+            // If we found an alias, register it with the QueryBuilder
+            if (!string.IsNullOrEmpty(alias))
+            {
+                qb.RegisterTableAliasForType(type, alias);
+            }
+            else
+            {
+                // Check if QueryBuilder already has an alias for this type
+                alias = qb.GetAliasForType(type);
+                
+                if (!string.IsNullOrEmpty(alias))
+                {
+                    // Register it in our EntityTypes
+                    RegisterEntityType(alias, type);
+                }
+                else
+                {
+                    // Create a new alias
+                    alias = qb.GetOrCreateAliasForType(type);
+                    RegisterEntityType(alias, type);
+                }
+            }
+        }
     }
 
     /// <summary>
-    /// A composite Select query that works with three joined tables
+    /// A composite Select query that works with multiple table joins
+    /// and comes at the end of a query chain with three joined tables
     /// </summary>
     public class CompositeSelect<TRoot, TJoin1, TJoin2, TJoin3, TResult> : CompositeSelectBase
     {
@@ -175,11 +465,58 @@ namespace ExpressionToSql.Composite
             
             // Register the selector parameters for tracking
             RegisterExpressionParameter(selector);
+            
+            // Explicitly register all types used in this query to ensure alias consistency
+            EnsureTypeRegistrations();
+        }
+        
+        private void EnsureTypeRegistrations()
+        {
+            // Make sure we have a registration for each generic type parameter
+            RegisterIfMissing(typeof(TRoot));
+            RegisterIfMissing(typeof(TJoin1));
+            RegisterIfMissing(typeof(TJoin2));
+            RegisterIfMissing(typeof(TJoin3));
+        }
+        
+        private void RegisterIfMissing(Type type)
+        {
+            // Check if the type is already registered with an alias
+            bool found = false;
+            foreach (var pair in EntityTypes)
+            {
+                if (pair.Value == type)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            
+            // If not found, register with a default alias
+            if (!found)
+            {
+                // Use the type name as the basis for an alias
+                string alias = type.Name.ToLowerInvariant()[0].ToString();
+                
+                // Make sure this alias doesn't clash with an existing one
+                int suffix = 1;
+                string candidateAlias = alias;
+                while (EntityTypes.ContainsKey(candidateAlias))
+                {
+                    candidateAlias = $"{alias}{suffix++}";
+                }
+                
+                // Register the type with this alias
+                RegisterEntityType(candidateAlias, type);
+            }
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
         {
-            // First prepare a temporary buffer for the base query
+            // First register all expected type-to-alias mappings before doing anything else
+            RegisterExpectedTypes(qb);
+            
+            // Now prepare a temporary buffer for the base query
             var tempBuilder = new StringBuilder();
             var tempQb = new QueryBuilder(tempBuilder, Dialect, _baseQuery);
             
@@ -188,6 +525,14 @@ namespace ExpressionToSql.Composite
             
             // Apply entity types to ensure aliases are registered
             ApplyEntityTypesToQueryBuilder(qb);
+            CopyParametersFromType(_baseQuery);
+            
+            // Ensure all entity types from the base query are also registered in our QueryBuilder
+            foreach (var kvp in _baseQuery.EntityTypes)
+            {
+                RegisterEntityType(kvp.Key, kvp.Value);
+                qb.RegisterTableAliasForType(kvp.Value, kvp.Key);
+            }
             
             // Add the base query to the main builder
             qb.Append(tempBuilder.ToString());
@@ -197,9 +542,55 @@ namespace ExpressionToSql.Composite
                 CompositeExpressionUtils.GetExpressions(typeof(TResult), _selector.Body),
                 typeof(TRoot),
                 qb,
-                typeof(TJoin1), typeof(TJoin2), typeof(TJoin3)); // Pass all three joined table types
+                typeof(TJoin1), typeof(TJoin2), typeof(TJoin3)); // Pass all joined table types
             
             return qb;
+        }
+        
+        private void RegisterExpectedTypes(QueryBuilder qb)
+        {
+            // Register all expected types with aliases
+            RegisterTypeWithAlias(qb, typeof(TRoot));
+            RegisterTypeWithAlias(qb, typeof(TJoin1));
+            RegisterTypeWithAlias(qb, typeof(TJoin2));
+            RegisterTypeWithAlias(qb, typeof(TJoin3));
+        }
+        
+        private void RegisterTypeWithAlias(QueryBuilder qb, Type type)
+        {
+            // First check if we already have an alias for this type in our EntityTypes
+            string alias = null;
+            foreach (var pair in EntityTypes)
+            {
+                if (pair.Value == type)
+                {
+                    alias = pair.Key;
+                    break;
+                }
+            }
+            
+            // If we found an alias, register it with the QueryBuilder
+            if (!string.IsNullOrEmpty(alias))
+            {
+                qb.RegisterTableAliasForType(type, alias);
+            }
+            else
+            {
+                // Check if QueryBuilder already has an alias for this type
+                alias = qb.GetAliasForType(type);
+                
+                if (!string.IsNullOrEmpty(alias))
+                {
+                    // Register it in our EntityTypes
+                    RegisterEntityType(alias, type);
+                }
+                else
+                {
+                    // Create a new alias
+                    alias = qb.GetOrCreateAliasForType(type);
+                    RegisterEntityType(alias, type);
+                }
+            }
         }
     }
     

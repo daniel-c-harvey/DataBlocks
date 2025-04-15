@@ -1,6 +1,7 @@
 using System;
-using System.Reflection;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using ScheMigrator.Migrations;
 
 namespace ExpressionToSql.Utils
@@ -47,6 +48,32 @@ namespace ExpressionToSql.Utils
                 }
             }
             throw new Exception($"ScheData attribute not found for member {memberInfo.Name} on type {entityType.FullName}");
+        }
+
+        public static IEnumerable<string> GetColumnNames(Type type)
+        {
+            if (type == null)
+                throw new ArgumentNullException(nameof(type));
+
+            // Get all public properties
+            var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            
+            // Use ResolveFieldName which already handles ScheDataAttribute lookup
+            return properties
+                .Select(p => 
+                {
+                    try 
+                    {
+                        // If ResolveFieldName succeeds, the property has ScheDataAttribute
+                        return ResolveFieldName(p, type);
+                    }
+                    catch (Exception)
+                    {
+                        // If ResolveFieldName throws, the property doesn't have ScheDataAttribute
+                        return string.Empty;
+                    }
+                })
+                .Where(p => !string.IsNullOrEmpty(p));
         }
     }
 } 

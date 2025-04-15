@@ -42,6 +42,9 @@ namespace ExpressionToSql
         // Track current aliases
         private Dictionary<Type, string> _tableAliases = new Dictionary<Type, string>();
         
+        // Track explicit alias mappings (e.g., "a" → "subq")
+        private Dictionary<string, string> _aliasMappings = new Dictionary<string, string>();
+
         // Track query parameters by name and type for better instance identification
         private HashSet<string> _queryParameters = new HashSet<string>();
 
@@ -87,20 +90,17 @@ namespace ExpressionToSql
             return this;
         }
 
-        public QueryBuilder AddParameterWithValue(string parameterName, object value, bool prepend = false)
+        public QueryBuilder AddParameterWithValue(string name, object value)
         {
-            if (prepend)
+            // Track the parameter in our owner query if we have one
+            if (_query != null && value != null)
             {
-                var tempSB = new StringBuilder();
-                tempSB.Append(" ").Append(_dialect.FormatParameter(parameterName));
-                _sb.Insert(0, tempSB);
-            }
-            else
-            {
-                _sb.Append(" ").Append(_dialect.FormatParameter(parameterName));
+                _query.Parameters[name] = value;
             }
             
-            _query.Parameters[parameterName] = value;
+            // Add the parameter reference to the SQL
+            _sb.Append(" @").Append(name);
+            
             return this;
         }
 
@@ -367,7 +367,17 @@ namespace ExpressionToSql
         // Register type-to-alias mapping with direct Type object
         public void RegisterTableAliasForType(Type type, string alias)
         {
+            if (type == null || string.IsNullOrEmpty(alias))
+                return;
+            
             _tableAliases[type] = alias;
+            
+            // Also check if this alias is mapped to another alias
+            if (_aliasMappings.TryGetValue(alias, out var mappedAlias))
+            {
+                // Register the type with the mapped alias too
+                _tableAliases[type] = mappedAlias;
+            }
         }
 
         // Get alias for a type
@@ -448,7 +458,14 @@ namespace ExpressionToSql
         /// <returns>The updated QueryBuilder</returns>
         public QueryBuilder AddSubquery(string subquerySql, string alias)
         {
-            _sb.Append("FROM (");
+            _sb.Append(" FROM (");
+            
+            // Ensure the subquery starts with SELECT if it doesn't already
+            if (!subquerySql.TrimStart().StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
+            {
+                _sb.Append("SELECT ");
+            }
+            
             _sb.Append(subquerySql);
             _sb.Append(")");
 
@@ -474,7 +491,11 @@ namespace ExpressionToSql
                 return this;
             }
 
-            _sb.Insert(0, "SELECT ");
+            // Ensure proper spacing between SELECT and the rest of the query
+            string currentQuery = _sb.ToString().TrimStart();
+            _sb.Clear();
+            _sb.Append("SELECT ");
+            _sb.Append(currentQuery);
             
             // Update state to indicate SELECT has been prepended
             _state = QueryBuilderState.SelectPrepended;
@@ -516,6 +537,158 @@ namespace ExpressionToSql
             else
             {
                 AddParameter(m.Member.Name, prepend: true);
+            }
+        }
+
+        public QueryBuilder ReplaceAliasInJoinCondition(string oldAlias, string newAlias)
+        {
+            // If the aliases are the same, no need to do anything
+            if (string.IsNullOrEmpty(oldAlias) || string.IsNullOrEmpty(newAlias) || oldAlias == newAlias)
+                return this;
+            
+            // Get the current SQL
+            string sql = _sb.ToString();
+            
+            // Find the last occurrence of the ON clause
+            int onIndex = sql.LastIndexOf(" ON", StringComparison.OrdinalIgnoreCase);
+            if (onIndex == -1) return this;
+            
+            // Get the join condition part
+            string joinCondition = sql.Substring(onIndex);
+            
+            // Get effective aliases - apply any mappings
+            oldAlias = GetEffectiveAlias(oldAlias);
+            newAlias = GetEffectiveAlias(newAlias);
+            
+            // Find all occurrences of oldAlias followed by a dot in the join condition
+            // and replace with newAlias
+            string oldPattern = $"{oldAlias}.";
+            string newPattern = $"{newAlias}.";
+            
+            // Replace the alias in the join condition
+            joinCondition = joinCondition.Replace(oldPattern, newPattern);
+            
+            // Update the StringBuilder
+            _sb.Remove(onIndex, _sb.Length - onIndex);
+            _sb.Append(joinCondition);
+            
+            return this;
+        }
+
+        // Apply alias mappings globally to all SQL
+        public QueryBuilder ApplyGlobalAliasMappings()
+        {
+            if (_aliasMappings.Count == 0)
+                return this;
+        
+            // Get the current SQL
+            string sql = _sb.ToString();
+            string originalSql = sql;
+            
+            // Apply each alias mapping
+            foreach (var mapping in _aliasMappings)
+            {
+                if (string.IsNullOrEmpty(mapping.Key) || mapping.Key == mapping.Value)
+                    continue;
+            
+                // Replace the alias pattern (e.g., "a." → "subq.")
+                string oldPattern = $"{mapping.Key}.";
+                string newPattern = $"{mapping.Value}.";
+                
+                // Replace all occurrences in the SQL
+                sql = sql.Replace(oldPattern, newPattern);
+            }
+            
+            // If changes were made, update the StringBuilder
+            if (sql != originalSql)
+            {
+                _sb.Clear();
+                _sb.Append(sql);
+            }
+            
+            return this;
+        }
+
+        // Check if a WHERE condition already exists for the same column and parameter
+        public bool HasDuplicateWhereCondition(string column, string parameter)
+        {
+            string sql = _sb.ToString();
+            string whereClause = sql.Contains("WHERE ", StringComparison.OrdinalIgnoreCase) 
+                ? sql.Substring(sql.IndexOf("WHERE ", StringComparison.OrdinalIgnoreCase)) 
+                : "";
+            
+            if (string.IsNullOrEmpty(whereClause))
+                return false;
+            
+            // Look for the exact condition pattern
+            string condition = $"{column} = {parameter}";
+            int firstOccurrence = whereClause.IndexOf(condition, StringComparison.OrdinalIgnoreCase);
+            
+            if (firstOccurrence == -1)
+                return false;
+            
+            // Check if it occurs again after the first occurrence
+            return whereClause.IndexOf(condition, firstOccurrence + condition.Length, StringComparison.OrdinalIgnoreCase) != -1;
+        }
+
+        // Store a mapping from one alias to another (useful for subqueries)
+        public void StoreAliasMapping(string oldAlias, string newAlias)
+        {
+            if (string.IsNullOrEmpty(oldAlias) || string.IsNullOrEmpty(newAlias) || oldAlias == newAlias)
+                return;
+            
+            _aliasMappings[oldAlias] = newAlias;
+            
+            // If we have a type associated with the old alias, also register it with the new alias
+            foreach (var kvp in _tableAliases.ToList())
+            {
+                if (_tableAliases[kvp.Key] == oldAlias)
+                {
+                    // Register this type with the new alias as well
+                    _tableAliases[kvp.Key] = newAlias;
+                }
+            }
+        }
+
+        // Get the effective alias - handles mappings and replacements
+        public string GetEffectiveAlias(string alias)
+        {
+            if (string.IsNullOrEmpty(alias))
+                return alias;
+        
+            // If we have a stored mapping for this alias, use it
+            if (_aliasMappings.TryGetValue(alias, out var mappedAlias))
+                return mappedAlias;
+        
+            return alias;
+        }
+        
+        // Get all mappings for a given type
+        public IEnumerable<KeyValuePair<string, string>> GetAliasMappingsForType(Type type)
+        {
+            if (type == null || _aliasMappings.Count == 0)
+                yield break;
+            
+            var originalAlias = GetAliasForType(type);
+            if (string.IsNullOrEmpty(originalAlias))
+                yield break;
+            
+            foreach (var mapping in _aliasMappings)
+            {
+                if (mapping.Key == originalAlias)
+                    yield return mapping;
+            }
+        }
+
+        // Clear any existing alias mapping for a specific type
+        public void ClearAliasForType(Type type)
+        {
+            if (type == null)
+                return;
+            
+            if (_tableAliases.ContainsKey(type))
+            {
+                _tableAliases.Remove(type);
             }
         }
     }

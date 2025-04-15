@@ -6,7 +6,7 @@ namespace ExpressionToSql.Composite;
 /// <summary>
     /// A composite Select query that works with multiple table joins
     /// </summary>
-    public class CompositeFrom<TRoot> : Query
+    public class CompositeFrom<TRoot> : QueryRoot<TRoot>
     {
         private readonly Table _rootTable;
         

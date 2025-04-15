@@ -21,6 +21,7 @@ namespace DataBlocks.ExpressionToSql.Expressions
         private readonly Query _query;
         private bool _firstCondition = true;
         private ClauseType _currentClauseType = ClauseType.Where;
+        private string _rootAlias = QueryBuilder.TableAliasName;
 
         public ExpressionBuilder(Query query, QueryBuilder queryBuilder)
         {
@@ -32,6 +33,12 @@ namespace DataBlocks.ExpressionToSql.Expressions
         public ExpressionBuilder WithClauseType(ClauseType clauseType)
         {
             _currentClauseType = clauseType;
+            return this;
+        }
+
+        public ExpressionBuilder WithRootAlias(string rootAlias)
+        {
+            _rootAlias = rootAlias;
             return this;
         }
 
@@ -174,12 +181,33 @@ namespace DataBlocks.ExpressionToSql.Expressions
                     clause(_queryBuilder, binaryExpression, this, "<=").Append2();
                     break;
                 case ExpressionType.AndAlso:
-                    BuildExpression(binaryExpression.Left, clause);
-                    BuildExpression(binaryExpression.Right, Clause.And);
+                    // Create a new builder for each side to ensure correct alias context
+                    var leftBuilder = new ExpressionBuilder(_query, _queryBuilder)
+                        .WithClauseType(_currentClauseType)
+                        .WithRootAlias(_rootAlias);
+                        
+                    leftBuilder.BuildExpression(binaryExpression.Left, clause);
+                    
+                    // For the right side, ensure we maintain the same root alias context
+                    var rightBuilder = new ExpressionBuilder(_query, _queryBuilder)
+                        .WithClauseType(_currentClauseType)
+                        .WithRootAlias(_rootAlias);
+                        
+                    rightBuilder.BuildExpression(binaryExpression.Right, Clause.And);
                     break;
                 case ExpressionType.OrElse:
-                    BuildExpression(binaryExpression.Left, clause);
-                    BuildExpression(binaryExpression.Right, Clause.Or);
+                    // Same pattern for OR expressions
+                    var leftOrBuilder = new ExpressionBuilder(_query, _queryBuilder)
+                        .WithClauseType(_currentClauseType)
+                        .WithRootAlias(_rootAlias);
+                        
+                    leftOrBuilder.BuildExpression(binaryExpression.Left, clause);
+                    
+                    var rightOrBuilder = new ExpressionBuilder(_query, _queryBuilder)
+                        .WithClauseType(_currentClauseType)
+                        .WithRootAlias(_rootAlias);
+                        
+                    rightOrBuilder.BuildExpression(binaryExpression.Right, Clause.Or);
                     break;
                 default:
                     throw new NotImplementedException($"Binary expression type {binaryExpression.NodeType} not supported");
@@ -189,8 +217,39 @@ namespace DataBlocks.ExpressionToSql.Expressions
         // Get attribute name handling type information
         protected string GetAttributeName(MemberExpression expression)
         {
+            // Get the appropriate table alias
             string tableAlias = GetTableAliasForMember(expression);
+            
+            // Get the entity type for this alias
             Type entityType = _query.GetEntityType(tableAlias);
+            
+            // If we don't have an entity type for this alias, try to get it from the expression parameter
+            if (entityType == null && expression.Expression is ParameterExpression paramExpr)
+            {
+                entityType = paramExpr.Type;
+            }
+            
+            // If still null, try with the root type as a fallback
+            if (entityType == null && !string.IsNullOrEmpty(_rootAlias))
+            {
+                entityType = _query.GetEntityType(_rootAlias);
+            }
+            
+            // Last resort, try the default table alias
+            if (entityType == null)
+            {
+                entityType = _query.GetEntityType(QueryBuilder.TableAliasName);
+            }
+            
+            // If we still don't have an entity type, this is an error
+            if (entityType == null)
+            {
+                throw new InvalidOperationException(
+                    $"Could not resolve entity type for member {expression.Member.Name}. " +
+                    $"Check that the entity type is properly registered in the query context.");
+            }
+            
+            // Resolve the field name
             return SqlTypeUtils.ResolveFieldName(expression.Member, entityType);
         }
 
@@ -199,20 +258,56 @@ namespace DataBlocks.ExpressionToSql.Expressions
         {
             if (expression.Expression is ParameterExpression paramExpr)
             {
-                var alias = _queryBuilder.GetAliasForType(paramExpr.Type);
-                // If we got a null alias, use the default
-                if (string.IsNullOrEmpty(alias))
+                // First try getting the alias directly from the QueryBuilder
+                string alias = _queryBuilder.GetAliasForType(paramExpr.Type);
+                
+                // If we have an alias for this type, use it (with any mappings applied)
+                if (!string.IsNullOrEmpty(alias))
                 {
-                    // This is likely an error - we got a type that hasn't been properly registered
-                    throw new InvalidOperationException(
-                        $"Type {paramExpr.Type.Name} was not found in the query's registered entity types. " +
-                        "Check that all joined types are properly registered.");
+                    return _queryBuilder.GetEffectiveAlias(alias);
                 }
+                
+                // If we don't have an alias in the QueryBuilder, check the Query's EntityTypes
+                // to see if we have a mapping for this type
+                foreach (var pair in _query.EntityTypes)
+                {
+                    if (pair.Value == paramExpr.Type)
+                    {
+                        alias = pair.Key;
+                        
+                        // Register this alias with the QueryBuilder to ensure consistent usage
+                        _queryBuilder.RegisterTableAliasForType(paramExpr.Type, alias);
+                        
+                        return _queryBuilder.GetEffectiveAlias(alias);
+                    }
+                }
+                
+                // If no specific alias found but this is the root type and we have a root alias, use that
+                if (!string.IsNullOrEmpty(_rootAlias))
+                {
+                    Type rootType = _query.GetEntityType(_rootAlias);
+                    if (rootType == paramExpr.Type)
+                    {
+                        return _rootAlias;
+                    }
+                }
+                
+                // As a last resort, create a new alias for this type
+                alias = _queryBuilder.GetOrCreateAliasForType(paramExpr.Type);
+                
+                // Register it with our query for future reference
+                _query.RegisterEntityType(alias, paramExpr.Type);
+                
                 return alias;
             }
             
-            // For non-parameter expressions, use the default alias
-            // Note: This might be a nested property access (e.g. person.Address.Street)
+            // For non-parameter expressions, use the root alias if specified
+            if (!string.IsNullOrEmpty(_rootAlias) && _rootAlias != QueryBuilder.TableAliasName)
+            {
+                return _rootAlias;
+            }
+            
+            // For other cases, use the default alias
             return QueryBuilder.TableAliasName;
         }
 
@@ -312,10 +407,14 @@ namespace DataBlocks.ExpressionToSql.Expressions
 
             private void ProcessLeftSide(MemberExpression leftMember, bool isSwapped)
             {
+                // Get the table alias for this member expression
+                // This should properly map to different tables based on the parameter type
                 string tableAlias = _expressionBuilder.GetTableAliasForMember(leftMember);
+                
+                // Get the attribute name
                 string attributeName = _expressionBuilder.GetAttributeName(leftMember);
                 
-                // Add the column reference
+                // Add the column reference with the determined alias
                 _queryBuilder.AddAttribute(attributeName, "", tableAlias);
                 
                 // Add the operator (reversed if needed)
@@ -343,8 +442,36 @@ namespace DataBlocks.ExpressionToSql.Expressions
 
             private void AddParameterFromConstant(ConstantExpression constExpr, string attributeName)
             {
+                // For WHERE clauses, check if we might be adding a duplicate condition
+                if (_expressionBuilder._currentClauseType == ClauseType.Where && !_queryBuilder.IsFirstCondition())
+                {
+                    // Check if the current SQL already contains a similar condition
+                    string sql = _queryBuilder.ToString();
+                    if (sql.Contains("WHERE ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string checkParamName = $"p_{attributeName}_direct";
+                        string tableAlias = GetDominantTableAlias();
+                        string condition = $"{tableAlias}.{attributeName} = @{checkParamName}";
+                        
+                        // If this exact condition already exists, skip adding it again
+                        if (sql.Contains(condition, StringComparison.OrdinalIgnoreCase))
+                            return;
+                    }
+                }
+                
                 var paramName = $"p_{attributeName}";
                 _queryBuilder.AddParameterWithValue(paramName, constExpr.Value);
+            }
+
+            // Helper to get the dominant table alias (either the specified one or root alias)
+            private string GetDominantTableAlias()
+            {
+                // In a subquery context, prefer the subquery alias over the default
+                if (_expressionBuilder._rootAlias != QueryBuilder.TableAliasName)
+                    return _expressionBuilder._rootAlias;
+                
+                return _binaryExpression?.Left is MemberExpression leftMember ?
+                    _expressionBuilder.GetTableAliasForMember(leftMember) : QueryBuilder.TableAliasName;
             }
 
             private void ProcessRightMember(MemberExpression memberExpr, string leftAttributeName)
@@ -420,6 +547,20 @@ namespace DataBlocks.ExpressionToSql.Expressions
                 // For member expressions, check the containing expression
                 if (expr is MemberExpression memberExpr)
                 {
+                    // If the root alias is specified (e.g., in a subquery context)
+                    // and is different from the default alias, then we should treat
+                    // root expressions as part of the query
+                    if (!string.IsNullOrEmpty(_expressionBuilder._rootAlias) && 
+                        _expressionBuilder._rootAlias != QueryBuilder.TableAliasName)
+                    {
+                        // If expression uses a parameter, check if it matches the root type
+                        if (memberExpr.Expression is ParameterExpression paramMemberExpr &&
+                            _expressionBuilder._query.GetEntityType(_expressionBuilder._rootAlias) == paramMemberExpr.Type)
+                        {
+                            return true;
+                        }
+                    }
+                    
                     // Get the table alias to check if this is a known entity in the query
                     string tableAlias = _expressionBuilder.GetTableAliasForMember(memberExpr);
                     
@@ -442,7 +583,19 @@ namespace DataBlocks.ExpressionToSql.Expressions
                 // If this is a parameter expression, we need to check if it's part of our query
                 if (member.Expression is ParameterExpression paramExpr)
                 {
-                    // Check if this parameter is registered in the query context
+                    // Special handling for subquery contexts
+                    if (!string.IsNullOrEmpty(_expressionBuilder._rootAlias) && 
+                        _expressionBuilder._rootAlias != QueryBuilder.TableAliasName)
+                    {
+                        // If the root type matches this parameter's type, it's likely part of the query
+                        Type rootType = _expressionBuilder._query.GetEntityType(_expressionBuilder._rootAlias);
+                        if (rootType == paramExpr.Type)
+                        {
+                            return true;
+                        }
+                    }
+                    
+                    // Regular check if this parameter is registered in the query context
                     return _expressionBuilder._query.HasExpressionParameter(paramExpr.Name, paramExpr.Type);
                 }
                 
@@ -473,6 +626,13 @@ namespace DataBlocks.ExpressionToSql.Expressions
                     {
                         return true;
                     }
+                    
+                    // If we have a custom root alias, check if the tableAlias is the root alias
+                    if (!string.IsNullOrEmpty(_expressionBuilder._rootAlias) && 
+                        tableAlias == _expressionBuilder._rootAlias)
+                    {
+                        return true;
+                    }
                 }
                 
                 // No strong evidence this property is part of our query
@@ -491,6 +651,41 @@ namespace DataBlocks.ExpressionToSql.Expressions
                 // Add parameter
                 var paramName = $"p_{attributeName}_direct";
                 _queryBuilder.AddParameterWithValue(paramName, value);
+            }
+        }
+
+        private void BuildMemberExpression(MemberExpression expression)
+        {
+            if (expression.Expression is ParameterExpression parameter)
+            {
+                string alias = parameter.Type == _query.GetEntityType(QueryBuilder.TableAliasName) 
+                    ? _rootAlias 
+                    : _queryBuilder.GetAliasForType(parameter.Type) ?? parameter.Name;
+                
+                _queryBuilder.AddAttribute(expression.Member.Name, "", alias);
+            }
+            else
+            {
+                // For nested expressions, we need to handle them without using BuildExpression directly
+                if (expression.Expression is MemberExpression memberExpr)
+                {
+                    // Recursively process the parent member
+                    BuildMemberExpression(memberExpr);
+                    _queryBuilder.Append(".").Append(expression.Member.Name);
+                }
+                else if (expression.Expression is ConstantExpression constExpr)
+                {
+                    // For constant expressions, just append the value and property
+                    _queryBuilder.Append(constExpr.Value?.ToString() ?? "NULL");
+                    _queryBuilder.Append(".").Append(expression.Member.Name);
+                }
+                else
+                {
+                    // For other expression types, evaluate and append
+                    var value = Expression.Lambda(expression.Expression).Compile().DynamicInvoke();
+                    _queryBuilder.Append(value?.ToString() ?? "NULL");
+                    _queryBuilder.Append(".").Append(expression.Member.Name);
+                }
             }
         }
     }

@@ -2,18 +2,19 @@ using System;
 using System.Linq.Expressions;
 using System.Text;
 using DataBlocks.DataAccess;
+using ExpressionToSql.Utils;
 
 namespace ExpressionToSql.Composite
 {
     /// <summary>
     /// Base class for PageByRoot implementations that apply paging to the root table as a subquery
     /// </summary>
-    public abstract class CompositePageByRootBase<TRoot> : Query
+    public abstract class CompositePageByRootBase<TRoot> : QueryRoot<TRoot>
     {
         private readonly int _pageSize;
         private readonly int _pageIndex;
         private readonly int _offset;
-        private readonly CompositeFrom<TRoot> _baseQuery;
+        private readonly QueryRoot<TRoot> _baseQuery;
         private readonly string _subqueryAlias;
         
         /// <summary>
@@ -36,7 +37,15 @@ namespace ExpressionToSql.Composite
             
             // Copy entity types from the base query to maintain context
             CopyEntityTypesFrom(baseQuery);
+            
+            // Register the root type with our subquery alias
+            RegisterEntityType(_subqueryAlias, typeof(TRoot));
         }
+        
+        /// <summary>
+        /// Gets the alias used for the subquery
+        /// </summary>
+        public string SubqueryAlias => _subqueryAlias;
         
         /// <summary>
         /// Adds a JOIN clause to the query with a custom table
@@ -83,6 +92,42 @@ namespace ExpressionToSql.Composite
                 // Build the base query into the subquery builder
                 _baseQuery.ToSql(subqueryQb);
                 
+                // Get the current SQL text
+                string currentSql = subquerySb.ToString().TrimStart();
+                
+                // If there's no SELECT, add one with all columns from the root table
+                if (!currentSql.StartsWith("SELECT", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Get all columns from the root table
+                    var rootType = typeof(TRoot);
+                    var columns = SqlTypeUtils.GetColumnNames(rootType);
+                    
+                    // Build a clean SELECT clause with proper syntax
+                    var selectBuilder = new StringBuilder("SELECT ");
+                    bool first = true;
+                    foreach (var column in columns)
+                    {
+                        if (!first) selectBuilder.Append(", ");
+                        selectBuilder.Append(QueryBuilder.TableAliasName).Append(".\"").Append(column).Append("\"");
+                        first = false;
+                    }
+                    selectBuilder.Append(" ");
+                    
+                    // Replace or prepend the SELECT clause
+                    if (currentSql.StartsWith("FROM", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Insert SELECT before FROM
+                        subquerySb.Insert(0, selectBuilder.ToString());
+                    }
+                    else
+                    {
+                        // Replace the entire string with our new SELECT
+                        subquerySb.Clear();
+                        subquerySb.Append(selectBuilder);
+                        _baseQuery.ToSql(subqueryQb); // Re-add everything after SELECT
+                    }
+                }
+                
                 // Apply the LIMIT and OFFSET to the subquery
                 subqueryQb.LimitOffset(_pageSize, _offset);
                 
@@ -95,7 +140,19 @@ namespace ExpressionToSql.Composite
                 // Update the alias mapping for the root type 
                 // (the root table is now referenced via the subquery alias)
                 qb.RegisterTableAliasForType(typeof(TRoot), _subqueryAlias);
-                RegisterEntityType(_subqueryAlias, typeof(TRoot));
+                
+                // Store the alias mapping from the old default alias to the subquery alias
+                // This is critical for WHERE clauses to work properly with subqueries
+                qb.StoreAliasMapping(QueryBuilder.TableAliasName, _subqueryAlias);
+                
+                // Also store any other alias that might be used for the root type
+                foreach (var alias in EntityTypes.Where(et => et.Value == typeof(TRoot)).Select(et => et.Key))
+                {
+                    if (alias != _subqueryAlias && alias != QueryBuilder.TableAliasName)
+                    {
+                        qb.StoreAliasMapping(alias, _subqueryAlias);
+                    }
+                }
                 
                 // Copy parameters from the base query
                 CopyParametersFromType(_baseQuery);

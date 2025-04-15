@@ -274,6 +274,13 @@ namespace ExpressionToSql.Composite
             // Check if this is from the root type or a joined type
             string? tableAlias = DetermineTableAlias(m, rootType, joinTypes);
             
+            // If no alias was determined but this is a root type member,
+            // get the alias from the QueryBuilder (handles subquery aliases)
+            if (tableAlias == null && m.Member.DeclaringType == rootType)
+            {
+                tableAlias = qb.GetAliasForType(rootType) ?? QueryBuilder.TableAliasName;
+            }
+            
             if (tableAlias != null)
             {
                 try
@@ -377,14 +384,11 @@ namespace ExpressionToSql.Composite
         /// </summary>
         private static string? DetermineTableAliasForType(Type type, Type rootType, Type[] joinTypes)
         {
-            // Special case: if a type is mapped to a subquery alias, QueryBuilder will use that alias
-            // We don't need special handling here as the QueryBuilder.GetAliasForType will return the correct
-            // subquery alias if the type is registered with a subquery alias
-            
             if (type == rootType)
             {
-                // For root type, use the primary alias - could be 'a' or a subquery alias like 'subq'
-                return QueryBuilder.TableAliasName;
+                // For root type, let the QueryBuilder determine the alias
+                // This ensures we use the subquery alias if one is registered
+                return null;
             }
             
             // For join types, determine the appropriate letter

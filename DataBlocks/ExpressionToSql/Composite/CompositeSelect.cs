@@ -44,34 +44,8 @@ namespace ExpressionToSql.Composite
         
         private void RegisterIfMissing(Type type)
         {
-            // Check if the type is already registered with an alias
-            bool found = false;
-            foreach (var pair in EntityTypes)
-            {
-                if (pair.Value == type)
-                {
-                    found = true;
-                    break;
-                }
-            }
-            
-            // If not found, register with a default alias
-            if (!found)
-            {
-                // Use the type name as the basis for an alias
-                string alias = type.Name.ToLowerInvariant()[0].ToString();
-                
-                // Make sure this alias doesn't clash with an existing one
-                int suffix = 1;
-                string candidateAlias = alias;
-                while (EntityTypes.ContainsKey(candidateAlias))
-                {
-                    candidateAlias = $"{alias}{suffix++}";
-                }
-                
-                // Register the type with this alias
-                RegisterEntityType(candidateAlias, type);
-            }
+            // Use AliasRegistry to handle type registration
+            Aliases.GetAliasForType(type); // This gets or creates an alias
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
@@ -117,39 +91,11 @@ namespace ExpressionToSql.Composite
         
         private void RegisterTypeWithAlias(QueryBuilder qb, Type type)
         {
-            // First check if we already have an alias for this type in our EntityTypes
-            string alias = null;
-            foreach (var pair in EntityTypes)
-            {
-                if (pair.Value == type)
-                {
-                    alias = pair.Key;
-                    break;
-                }
-            }
+            // Get alias from AliasRegistry
+            string alias = Aliases.GetAliasForType(type);
             
-            // If we found an alias, register it with the QueryBuilder
-            if (!string.IsNullOrEmpty(alias))
-            {
-                qb.RegisterTableAliasForType(type, alias);
-            }
-            else
-            {
-                // Check if QueryBuilder already has an alias for this type
-                alias = qb.GetAliasForType(type);
-                
-                if (!string.IsNullOrEmpty(alias))
-                {
-                    // Register it in our EntityTypes
-                    RegisterEntityType(alias, type);
-                }
-                else
-                {
-                    // Create a new alias
-                    alias = qb.GetOrCreateAliasForType(type);
-                    RegisterEntityType(alias, type);
-                }
-            }
+            // Register with QueryBuilder
+            qb.RegisterTableAliasForType(type, alias);
         }
     }
     
@@ -187,34 +133,8 @@ namespace ExpressionToSql.Composite
         
         private void RegisterIfMissing(Type type)
         {
-            // Check if the type is already registered with an alias
-            bool found = false;
-            foreach (var pair in EntityTypes)
-            {
-                if (pair.Value == type)
-                {
-                    found = true;
-                    break;
-                }
-            }
-            
-            // If not found, register with a default alias
-            if (!found)
-            {
-                // Use the type name as the basis for an alias
-                string alias = type.Name.ToLowerInvariant()[0].ToString();
-                
-                // Make sure this alias doesn't clash with an existing one
-                int suffix = 1;
-                string candidateAlias = alias;
-                while (EntityTypes.ContainsKey(candidateAlias))
-                {
-                    candidateAlias = $"{alias}{suffix++}";
-                }
-                
-                // Register the type with this alias
-                RegisterEntityType(candidateAlias, type);
-            }
+            // Use AliasRegistry to handle type registration
+            Aliases.GetAliasForType(type); // This gets or creates an alias
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
@@ -262,39 +182,11 @@ namespace ExpressionToSql.Composite
         
         private void RegisterTypeWithAlias(QueryBuilder qb, Type type)
         {
-            // First check if we already have an alias for this type in our EntityTypes
-            string alias = null;
-            foreach (var pair in EntityTypes)
-            {
-                if (pair.Value == type)
-                {
-                    alias = pair.Key;
-                    break;
-                }
-            }
+            // Get alias from AliasRegistry
+            string alias = Aliases.GetAliasForType(type);
             
-            // If we found an alias, register it with the QueryBuilder
-            if (!string.IsNullOrEmpty(alias))
-            {
-                qb.RegisterTableAliasForType(type, alias);
-            }
-            else
-            {
-                // Check if QueryBuilder already has an alias for this type
-                alias = qb.GetAliasForType(type);
-                
-                if (!string.IsNullOrEmpty(alias))
-                {
-                    // Register it in our EntityTypes
-                    RegisterEntityType(alias, type);
-                }
-                else
-                {
-                    // Create a new alias
-                    alias = qb.GetOrCreateAliasForType(type);
-                    RegisterEntityType(alias, type);
-                }
-            }
+            // Register with QueryBuilder
+            qb.RegisterTableAliasForType(type, alias);
         }
     }
     
@@ -333,34 +225,8 @@ namespace ExpressionToSql.Composite
         
         private void RegisterIfMissing(Type type)
         {
-            // Check if the type is already registered with an alias
-            bool found = false;
-            foreach (var pair in EntityTypes)
-            {
-                if (pair.Value == type)
-                {
-                    found = true;
-                    break;
-                }
-            }
-            
-            // If not found, register with a default alias
-            if (!found)
-            {
-                // Use the type name as the basis for an alias
-                string alias = type.Name.ToLowerInvariant()[0].ToString();
-                
-                // Make sure this alias doesn't clash with an existing one
-                int suffix = 1;
-                string candidateAlias = alias;
-                while (EntityTypes.ContainsKey(candidateAlias))
-                {
-                    candidateAlias = $"{alias}{suffix++}";
-                }
-                
-                // Register the type with this alias
-                RegisterEntityType(candidateAlias, type);
-            }
+            // Use AliasRegistry to handle type registration
+            Aliases.GetAliasForType(type); // This gets or creates an alias
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
@@ -409,39 +275,11 @@ namespace ExpressionToSql.Composite
         
         private void RegisterTypeWithAlias(QueryBuilder qb, Type type)
         {
-            // First check if we already have an alias for this type in our EntityTypes
-            string alias = null;
-            foreach (var pair in EntityTypes)
-            {
-                if (pair.Value == type)
-                {
-                    alias = pair.Key;
-                    break;
-                }
-            }
+            // Get alias from AliasRegistry
+            string alias = Aliases.GetAliasForType(type);
             
-            // If we found an alias, register it with the QueryBuilder
-            if (!string.IsNullOrEmpty(alias))
-            {
-                qb.RegisterTableAliasForType(type, alias);
-            }
-            else
-            {
-                // Check if QueryBuilder already has an alias for this type
-                alias = qb.GetAliasForType(type);
-                
-                if (!string.IsNullOrEmpty(alias))
-                {
-                    // Register it in our EntityTypes
-                    RegisterEntityType(alias, type);
-                }
-                else
-                {
-                    // Create a new alias
-                    alias = qb.GetOrCreateAliasForType(type);
-                    RegisterEntityType(alias, type);
-                }
-            }
+            // Register with QueryBuilder
+            qb.RegisterTableAliasForType(type, alias);
         }
     }
 
@@ -481,34 +319,8 @@ namespace ExpressionToSql.Composite
         
         private void RegisterIfMissing(Type type)
         {
-            // Check if the type is already registered with an alias
-            bool found = false;
-            foreach (var pair in EntityTypes)
-            {
-                if (pair.Value == type)
-                {
-                    found = true;
-                    break;
-                }
-            }
-            
-            // If not found, register with a default alias
-            if (!found)
-            {
-                // Use the type name as the basis for an alias
-                string alias = type.Name.ToLowerInvariant()[0].ToString();
-                
-                // Make sure this alias doesn't clash with an existing one
-                int suffix = 1;
-                string candidateAlias = alias;
-                while (EntityTypes.ContainsKey(candidateAlias))
-                {
-                    candidateAlias = $"{alias}{suffix++}";
-                }
-                
-                // Register the type with this alias
-                RegisterEntityType(candidateAlias, type);
-            }
+            // Use AliasRegistry to handle type registration
+            Aliases.GetAliasForType(type); // This gets or creates an alias
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
@@ -558,39 +370,11 @@ namespace ExpressionToSql.Composite
         
         private void RegisterTypeWithAlias(QueryBuilder qb, Type type)
         {
-            // First check if we already have an alias for this type in our EntityTypes
-            string alias = null;
-            foreach (var pair in EntityTypes)
-            {
-                if (pair.Value == type)
-                {
-                    alias = pair.Key;
-                    break;
-                }
-            }
+            // Get alias from AliasRegistry
+            string alias = Aliases.GetAliasForType(type);
             
-            // If we found an alias, register it with the QueryBuilder
-            if (!string.IsNullOrEmpty(alias))
-            {
-                qb.RegisterTableAliasForType(type, alias);
-            }
-            else
-            {
-                // Check if QueryBuilder already has an alias for this type
-                alias = qb.GetAliasForType(type);
-                
-                if (!string.IsNullOrEmpty(alias))
-                {
-                    // Register it in our EntityTypes
-                    RegisterEntityType(alias, type);
-                }
-                else
-                {
-                    // Create a new alias
-                    alias = qb.GetOrCreateAliasForType(type);
-                    RegisterEntityType(alias, type);
-                }
-            }
+            // Register with QueryBuilder
+            qb.RegisterTableAliasForType(type, alias);
         }
     }
     

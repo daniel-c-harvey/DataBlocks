@@ -15,7 +15,10 @@ namespace ExpressionToSql.Composite;
         {
             _rootTable = rootTable;
             
-            // Register the root entity type
+            // Register the root entity type with AliasRegistry
+            Aliases.RegisterType(typeof(TRoot), QueryBuilder.TableAliasName);
+            
+            // For backward compatibility
             RegisterEntityType(QueryBuilder.TableAliasName, typeof(TRoot));
         }
         

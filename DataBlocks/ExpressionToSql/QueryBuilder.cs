@@ -367,35 +367,50 @@ namespace ExpressionToSql
         // Register type-to-alias mapping with direct Type object
         public void RegisterTableAliasForType(Type type, string alias)
         {
-            if (type == null || string.IsNullOrEmpty(alias))
-                return;
+            if (type == null)
+                throw new ArgumentNullException(nameof(type), "Type cannot be null when registering alias");
+                
+            if (string.IsNullOrEmpty(alias))
+                throw new ArgumentException("Alias cannot be null or empty", nameof(alias));
             
             _tableAliases[type] = alias;
+            
+            // Also register in the query's AliasRegistry if available
+            if (_query != null)
+            {
+                _query.Aliases.RegisterType(type, alias);
+            }
             
             // Also check if this alias is mapped to another alias
             if (_aliasMappings.TryGetValue(alias, out var mappedAlias))
             {
                 // Register the type with the mapped alias too
                 _tableAliases[type] = mappedAlias;
+                
+                // Also register in the query's AliasRegistry
+                if (_query != null)
+                {
+                    _query.Aliases.RedirectAlias(alias, mappedAlias);
+                }
             }
         }
 
         // Get alias for a type
-        public string? GetAliasForType(Type type)
+        public string GetAliasForType(Type type)
         {
             if (type == null)
-                return null;
-        
-            return _tableAliases.TryGetValue(type, out var alias) ? alias : null;
+                throw new ArgumentNullException(nameof(type), "Type cannot be null when getting alias");
+                
+            return _query.Aliases.GetAliasForType(type);
         }
 
         // Check if a type has a registered alias
         public bool HasAliasForType(Type type)
         {
             if (type == null)
-                return false;
-        
-            return _tableAliases.ContainsKey(type);
+                throw new ArgumentNullException(nameof(type), "Type cannot be null when checking for alias");
+                
+            return _query.Aliases.HasAliasForType(type);
         }
 
         // Get alias or create a new one if it doesn't exist
@@ -631,36 +646,18 @@ namespace ExpressionToSql
             return whereClause.IndexOf(condition, firstOccurrence + condition.Length, StringComparison.OrdinalIgnoreCase) != -1;
         }
 
-        // Store a mapping from one alias to another (useful for subqueries)
-        public void StoreAliasMapping(string oldAlias, string newAlias)
+        /// <summary>
+        /// Stores an alias mapping (for redirecting one alias to another)
+        /// </summary>
+        public void StoreAliasMapping(string sourceAlias, string targetAlias)
         {
-            if (string.IsNullOrEmpty(oldAlias) || string.IsNullOrEmpty(newAlias) || oldAlias == newAlias)
-                return;
-            
-            _aliasMappings[oldAlias] = newAlias;
-            
-            // If we have a type associated with the old alias, also register it with the new alias
-            foreach (var kvp in _tableAliases.ToList())
-            {
-                if (_tableAliases[kvp.Key] == oldAlias)
-                {
-                    // Register this type with the new alias as well
-                    _tableAliases[kvp.Key] = newAlias;
-                }
-            }
+            _query.Aliases.RedirectAlias(sourceAlias, targetAlias);
         }
 
-        // Get the effective alias - handles mappings and replacements
+        // Get the effective alias after any redirections
         public string GetEffectiveAlias(string alias)
         {
-            if (string.IsNullOrEmpty(alias))
-                return alias;
-        
-            // If we have a stored mapping for this alias, use it
-            if (_aliasMappings.TryGetValue(alias, out var mappedAlias))
-                return mappedAlias;
-        
-            return alias;
+            return _query.Aliases.GetEffectiveAlias(alias);
         }
         
         // Get all mappings for a given type

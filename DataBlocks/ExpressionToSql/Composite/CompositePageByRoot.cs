@@ -145,13 +145,15 @@ namespace ExpressionToSql.Composite
                 // This is critical for WHERE clauses to work properly with subqueries
                 qb.StoreAliasMapping(QueryBuilder.TableAliasName, _subqueryAlias);
                 
+                // Also register this redirection in our AliasRegistry
+                Aliases.RedirectAlias(QueryBuilder.TableAliasName, _subqueryAlias);
+                
                 // Also store any other alias that might be used for the root type
-                foreach (var alias in EntityTypes.Where(et => et.Value == typeof(TRoot)).Select(et => et.Key))
+                string rootTypeAlias = Aliases.GetAliasForType(typeof(TRoot));
+                if (!string.IsNullOrEmpty(rootTypeAlias) && rootTypeAlias != _subqueryAlias && rootTypeAlias != QueryBuilder.TableAliasName)
                 {
-                    if (alias != _subqueryAlias && alias != QueryBuilder.TableAliasName)
-                    {
-                        qb.StoreAliasMapping(alias, _subqueryAlias);
-                    }
+                    qb.StoreAliasMapping(rootTypeAlias, _subqueryAlias);
+                    Aliases.RedirectAlias(rootTypeAlias, _subqueryAlias);
                 }
                 
                 // Copy parameters from the base query

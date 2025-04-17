@@ -16,98 +16,51 @@ namespace ExpressionToSql.Composite
             : base(baseJoin.Dialect)
         {
             _baseJoin = baseJoin;
-            CopyEntityTypesFrom(baseJoin);
+            CopyAliasesFrom(baseJoin);
         }
 
-        // Centralized method to resolve type-to-alias mappings
+        // Simplified method to register parameter aliases for lambda expressions
+        protected void RegisterParameterAliases<TDelegate>(Expression<TDelegate> expression, Dictionary<Type, string> typeAliases)
+        {
+            // Skip if no expression or no parameters
+            if (expression == null || expression.Parameters.Count == 0)
+                return;
+                
+            // Register all parameters with their corresponding types
+            foreach (var param in expression.Parameters)
+            {
+                var paramType = param.Type;
+                
+                // Look up the alias for this parameter's type
+                if (typeAliases.TryGetValue(paramType, out string alias))
+                {
+                    // Register in AliasRegistry
+                    Aliases.RegisterParameterAlias(param.Name, paramType, alias);
+                }
+            }
+        }
+
+        // Simplified method to resolve aliases for all expected types
         protected Dictionary<Type, string> ResolveTypeAliases(QueryBuilder qb)
         {
-            var typeAliases = new Dictionary<Type, string>();
-
-            // First gather all entity type mappings from the EntityTypes dictionary
-            foreach (var kvp in EntityTypes)
+            var result = new Dictionary<Type, string>();
+            
+            // Get all expected types for this query
+            foreach (var type in GetExpectedTypes())
             {
-                // Only record the first alias for each type if there are multiple
-                if (!typeAliases.ContainsKey(kvp.Value))
-                {
-                    typeAliases.Add(kvp.Value, kvp.Key);
-                }
-            }
-
-            // Check if any aliases are mapped to another alias (e.g., subquery alias)
-            foreach (var type in typeAliases.Keys.ToList())
-            {
-                string alias = typeAliases[type];
-                string effectiveAlias = qb.GetEffectiveAlias(alias);
+                // Get alias from our AliasRegistry, creating one if it doesn't exist
+                string alias = Aliases.GetAliasForType(type);
                 
-                // Update with effective alias if different
-                if (effectiveAlias != alias)
-                {
-                    typeAliases[type] = effectiveAlias;
-                }
+                // Apply any alias redirection (e.g., from subqueries)
+                string effectiveAlias = Aliases.GetEffectiveAlias(alias);
+                
+                result[type] = effectiveAlias;
+                
+                // Make sure the QueryBuilder knows about this mapping
+                qb.RegisterTableAliasForType(type, effectiveAlias);
             }
-
-            // IMPROVEMENT: Check for missing types that might be needed for this query
-            // If we have generic type parameters that aren't registered, try to find them in the QueryBuilder
-            // This handles cases where types like PersonnelContact aren't being properly tracked
-            Type[] expectedTypes = GetExpectedTypes();
-            foreach (var type in expectedTypes)
-            {
-                if (!typeAliases.ContainsKey(type))
-                {
-                    // First try getting alias from the QueryBuilder
-                    string alias = qb.GetAliasForType(type);
-                    if (!string.IsNullOrEmpty(alias))
-                    {
-                        typeAliases[type] = alias;
-                        
-                        // Also register it in our EntityTypes dictionary for future use
-                        RegisterEntityType(alias, type);
-                        continue;
-                    }
-                    
-                    // If not in QueryBuilder, look for the type in the base query's EntityTypes
-                    if (_baseJoin != null)
-                    {
-                        foreach (var kvp in _baseJoin.EntityTypes)
-                        {
-                            if (kvp.Value == type)
-                            {
-                                alias = kvp.Key;
-                                typeAliases[type] = alias;
-                                RegisterEntityType(alias, type);
-                                break;
-                            }
-                        }
-                    }
-                    
-                    // If still not found, create a new alias as a last resort
-                    if (!typeAliases.ContainsKey(type))
-                    {
-                        alias = qb.GetOrCreateAliasForType(type);
-                        typeAliases[type] = alias;
-                        RegisterEntityType(alias, type);
-                    }
-                }
-            }
-
-            return typeAliases;
-        }
-
-        // Get the types that should be expected in this query based on the generic parameters
-        protected virtual Type[] GetExpectedTypes()
-        {
-            // Base implementation just returns root type
-            return new Type[] { typeof(TRoot) };
-        }
-
-        protected void RegisterResolvedAliases(QueryBuilder qb, Dictionary<Type, string> typeAliases)
-        {
-            // Register all resolved aliases back to the query builder
-            foreach (var kvp in typeAliases)
-            {
-                qb.RegisterTableAliasForType(kvp.Key, kvp.Value);
-            }
+            
+            return result;
         }
 
         protected string GetRequiredAlias(Dictionary<Type, string> typeAliases, Type type, string typeName)
@@ -115,6 +68,13 @@ namespace ExpressionToSql.Composite
             return typeAliases.TryGetValue(type, out var alias)
                 ? alias
                 : throw new InvalidOperationException($"No alias mapping found for {typeName} {type.Name}");
+        }
+        
+        // Get the types that should be expected in this query based on the generic parameters
+        protected virtual Type[] GetExpectedTypes()
+        {
+            // Base implementation just returns root type
+            return new Type[] { typeof(TRoot) };
         }
     }
 
@@ -130,6 +90,18 @@ namespace ExpressionToSql.Composite
         {
             _predicate = predicate;
             RegisterExpressionParameter(predicate);
+            
+            // Register the root type alias immediately - use RegisterType to ensure registration
+            var rootAlias = Aliases.RegisterType(typeof(TRoot));
+            
+            // Register parameters by matching parameter type with entity type
+            foreach (var param in predicate.Parameters)
+            {
+                if (param.Type == typeof(TRoot))
+                {
+                    Aliases.RegisterParameterAlias(param.Name, typeof(TRoot), rootAlias);
+                }
+            }
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
@@ -137,22 +109,15 @@ namespace ExpressionToSql.Composite
             // Build the base query first
             _baseJoin.ToSql(qb);
 
-            // Resolve all type-to-alias mappings
-            var typeAliases = ResolveTypeAliases(qb);
-            
-            // Get the alias for the root type
-            string rootAlias = GetRequiredAlias(typeAliases, typeof(TRoot), "root type");
+            // Make sure all type-to-alias mappings are registered with the QueryBuilder
+            ResolveTypeAliases(qb);
             
             // Reset condition state for WHERE clause
             qb.ResetConditionState();
             
-            // Register the alias for root type
-            RegisterResolvedAliases(qb, typeAliases);
-            
             // Build WHERE clause with the correct alias
             var whereExpressionBuilder = new ExpressionBuilder(this, qb)
-                .WithClauseType(ClauseType.Where)
-                .WithRootAlias(rootAlias);
+                .WithClauseType(ClauseType.Where);
             
             whereExpressionBuilder.BuildExpression(_predicate.Body, ExpressionBuilder.Clause.And);
             
@@ -175,6 +140,23 @@ namespace ExpressionToSql.Composite
         {
             _predicate = predicate;
             RegisterExpressionParameter(predicate);
+            
+            // Register all types with their aliases immediately - use RegisterType to ensure registration
+            var rootAlias = Aliases.RegisterType(typeof(TRoot));
+            var joinAlias = Aliases.RegisterType(typeof(TJoin));
+            
+            // Register parameters by matching parameter type with entity type
+            foreach (var param in predicate.Parameters)
+            {
+                if (param.Type == typeof(TRoot))
+                {
+                    Aliases.RegisterParameterAlias(param.Name, typeof(TRoot), rootAlias);
+                }
+                else if (param.Type == typeof(TJoin))
+                {
+                    Aliases.RegisterParameterAlias(param.Name, typeof(TJoin), joinAlias);
+                }
+            }
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
@@ -182,23 +164,15 @@ namespace ExpressionToSql.Composite
             // Build the base query first
             _baseJoin.ToSql(qb);
             
-            // Resolve all type-to-alias mappings
-            var typeAliases = ResolveTypeAliases(qb);
-            
-            // Get aliases for all needed types
-            string rootAlias = GetRequiredAlias(typeAliases, typeof(TRoot), "root type");
-            string joinAlias = GetRequiredAlias(typeAliases, typeof(TJoin), "join type");
+            // Make sure all type-to-alias mappings are registered with the QueryBuilder
+            ResolveTypeAliases(qb);
             
             // Reset condition state for WHERE clause
             qb.ResetConditionState();
             
-            // Register the resolved aliases
-            RegisterResolvedAliases(qb, typeAliases);
-            
-            // Build WHERE clause with the correct alias
+            // Build WHERE clause using AliasRegistry for correct alias mapping
             var whereExpressionBuilder = new ExpressionBuilder(this, qb)
-                .WithClauseType(ClauseType.Where)
-                .WithRootAlias(rootAlias);
+                .WithClauseType(ClauseType.Where);
             
             whereExpressionBuilder.BuildExpression(_predicate.Body, ExpressionBuilder.Clause.And);
             
@@ -227,6 +201,28 @@ namespace ExpressionToSql.Composite
         {
             _predicate = predicate;
             RegisterExpressionParameter(predicate);
+            
+            // Register all types with their aliases immediately - use RegisterType to ensure registration
+            var rootAlias = Aliases.RegisterType(typeof(TRoot));
+            var join1Alias = Aliases.RegisterType(typeof(TJoin1));
+            var join2Alias = Aliases.RegisterType(typeof(TJoin2));
+            
+            // Register parameters by matching parameter type with entity type
+            foreach (var param in predicate.Parameters)
+            {
+                if (param.Type == typeof(TRoot))
+                {
+                    Aliases.RegisterParameterAlias(param.Name, typeof(TRoot), rootAlias);
+                }
+                else if (param.Type == typeof(TJoin1))
+                {
+                    Aliases.RegisterParameterAlias(param.Name, typeof(TJoin1), join1Alias);
+                }
+                else if (param.Type == typeof(TJoin2))
+                {
+                    Aliases.RegisterParameterAlias(param.Name, typeof(TJoin2), join2Alias);
+                }
+            }
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
@@ -234,24 +230,15 @@ namespace ExpressionToSql.Composite
             // Build the base query first
             _baseJoin.ToSql(qb);
             
-            // Resolve all type-to-alias mappings
-            var typeAliases = ResolveTypeAliases(qb);
-            
-            // Get aliases for all needed types
-            string rootAlias = GetRequiredAlias(typeAliases, typeof(TRoot), "root type");
-            string join1Alias = GetRequiredAlias(typeAliases, typeof(TJoin1), "join type");
-            string join2Alias = GetRequiredAlias(typeAliases, typeof(TJoin2), "join type");
+            // Make sure all type-to-alias mappings are registered with the QueryBuilder
+            ResolveTypeAliases(qb);
             
             // Reset condition state for WHERE clause
             qb.ResetConditionState();
             
-            // Register the resolved aliases
-            RegisterResolvedAliases(qb, typeAliases);
-            
-            // Build WHERE clause with the correct alias
+            // Build WHERE clause using AliasRegistry for correct alias mapping
             var whereExpressionBuilder = new ExpressionBuilder(this, qb)
-                .WithClauseType(ClauseType.Where)
-                .WithRootAlias(rootAlias);
+                .WithClauseType(ClauseType.Where);
             
             whereExpressionBuilder.BuildExpression(_predicate.Body, ExpressionBuilder.Clause.And);
             
@@ -260,7 +247,7 @@ namespace ExpressionToSql.Composite
             
             return qb;
         }
-
+        
         // Override to return all expected types for this query
         protected override Type[] GetExpectedTypes()
         {
@@ -280,6 +267,33 @@ namespace ExpressionToSql.Composite
         {
             _predicate = predicate;
             RegisterExpressionParameter(predicate);
+            
+            // Register all types with their aliases immediately - use RegisterType to ensure registration
+            var rootAlias = Aliases.RegisterType(typeof(TRoot));
+            var join1Alias = Aliases.RegisterType(typeof(TJoin1));
+            var join2Alias = Aliases.RegisterType(typeof(TJoin2));
+            var join3Alias = Aliases.RegisterType(typeof(TJoin3));
+            
+            // Register parameters by matching parameter type with entity type
+            foreach (var param in predicate.Parameters)
+            {
+                if (param.Type == typeof(TRoot))
+                {
+                    Aliases.RegisterParameterAlias(param.Name, typeof(TRoot), rootAlias);
+                }
+                else if (param.Type == typeof(TJoin1))
+                {
+                    Aliases.RegisterParameterAlias(param.Name, typeof(TJoin1), join1Alias);
+                }
+                else if (param.Type == typeof(TJoin2))
+                {
+                    Aliases.RegisterParameterAlias(param.Name, typeof(TJoin2), join2Alias);
+                }
+                else if (param.Type == typeof(TJoin3))
+                {
+                    Aliases.RegisterParameterAlias(param.Name, typeof(TJoin3), join3Alias);
+                }
+            }
         }
         
         internal override QueryBuilder ToSql(QueryBuilder qb)
@@ -287,25 +301,15 @@ namespace ExpressionToSql.Composite
             // Build the base query first
             _baseJoin.ToSql(qb);
             
-            // Resolve all type-to-alias mappings
-            var typeAliases = ResolveTypeAliases(qb);
-            
-            // Get aliases for all needed types
-            string rootAlias = GetRequiredAlias(typeAliases, typeof(TRoot), "root type");
-            string join1Alias = GetRequiredAlias(typeAliases, typeof(TJoin1), "join type");
-            string join2Alias = GetRequiredAlias(typeAliases, typeof(TJoin2), "join type");
-            string join3Alias = GetRequiredAlias(typeAliases, typeof(TJoin3), "join type");
+            // Make sure all type-to-alias mappings are registered with the QueryBuilder
+            ResolveTypeAliases(qb);
             
             // Reset condition state for WHERE clause
             qb.ResetConditionState();
             
-            // Register the resolved aliases
-            RegisterResolvedAliases(qb, typeAliases);
-            
-            // Build WHERE clause with the correct alias
+            // Build WHERE clause using AliasRegistry for correct alias mapping
             var whereExpressionBuilder = new ExpressionBuilder(this, qb)
-                .WithClauseType(ClauseType.Where)
-                .WithRootAlias(rootAlias);
+                .WithClauseType(ClauseType.Where);
             
             whereExpressionBuilder.BuildExpression(_predicate.Body, ExpressionBuilder.Clause.And);
             

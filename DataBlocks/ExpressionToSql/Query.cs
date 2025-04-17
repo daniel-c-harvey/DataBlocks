@@ -10,7 +10,11 @@ namespace ExpressionToSql
         protected internal ISqlDialect Dialect { get; private set; }
         protected internal Dictionary<string, object> Parameters { get; } = new Dictionary<string, object>();
         
-        // Dictionary to track entity types by alias
+        // Replace EntityTypes dictionary with AliasRegistry
+        protected internal AliasRegistry Aliases { get; } = new AliasRegistry();
+        
+        // Keep EntityTypes for backward compatibility
+        // This will be used for transitioning to AliasRegistry
         protected internal Dictionary<string, Type> EntityTypes { get; } = new Dictionary<string, Type>();
         
         // Dictionary to track expression parameters
@@ -21,38 +25,50 @@ namespace ExpressionToSql
             Dialect = dialect;
         }
         
-        // Method to register an entity type for an alias
+        // Method to register an entity type for an alias (updated to use AliasRegistry)
         protected internal void RegisterEntityType(string alias, Type entityType)
         {
+            if (string.IsNullOrEmpty(alias))
+                throw new ArgumentException("Alias cannot be null or empty", nameof(alias));
+                
+            if (entityType == null)
+                throw new ArgumentNullException(nameof(entityType), "Entity type cannot be null");
+                
+            // Register in AliasRegistry
+            Aliases.RegisterType(entityType, alias);
+            
+            // Keep for backward compatibility
             EntityTypes[alias] = entityType;
         }
         
-        // Method to retrieve the entity type for an alias
+        // Method to retrieve the entity type for an alias (updated to use AliasRegistry)
         protected internal Type GetEntityType(string alias)
         {
-            return EntityTypes.TryGetValue(alias, out var type) ? type : null;
+            if (string.IsNullOrEmpty(alias))
+                throw new ArgumentException("Alias cannot be null or empty", nameof(alias));
+                
+            return Aliases.GetTypeForAlias(alias);
         }
         
-        // Method to lookup an alias for a given type - centralizing alias resolution logic
+        // New method to get alias for type using AliasRegistry
         protected internal string GetAliasForType(Type type)
         {
-            if (type == null) return null;
-            
-            // Look through all mappings for this type
-            foreach (var pair in EntityTypes)
-            {
-                if (pair.Value == type)
-                {
-                    return pair.Key;
-                }
-            }
-            
-            return null;
+            if (type == null)
+                throw new ArgumentNullException(nameof(type), "Type cannot be null");
+                
+            return Aliases.GetAliasForType(type);
         }
         
-        // Method to copy entity types from another query
-        protected internal void CopyEntityTypesFrom(Query sourceQuery)
+        // Method to copy alias mappings from another query
+        protected internal void CopyAliasesFrom(Query sourceQuery)
         {
+            if (sourceQuery == null)
+                return;
+                
+            // Copy from AliasRegistry
+            Aliases.CopyFrom(sourceQuery.Aliases);
+            
+            // Also copy EntityTypes for backward compatibility
             foreach (var pair in sourceQuery.EntityTypes)
             {
                 EntityTypes[pair.Key] = pair.Value;
@@ -65,82 +81,43 @@ namespace ExpressionToSql
             }
         }
         
+        // For backward compatibility, retain CopyEntityTypesFrom but implement using CopyAliasesFrom
+        protected internal void CopyEntityTypesFrom(Query sourceQuery)
+        {
+            CopyAliasesFrom(sourceQuery);
+        }
+        
         protected internal void CopyParametersFromType(Query baseQuery)
         {
+            if (baseQuery == null)
+                return;
+                
             foreach (var (key, value) in baseQuery.Parameters)
             {
                 Parameters.TryAdd(key, value);
             }
         }
         
-        // Method to ensure all types have appropriate aliases registered
-        protected internal void EnsureTypesHaveAliases(QueryBuilder qb)
+        // Enhanced method to apply aliases to a QueryBuilder
+        protected internal void ApplyAliasesToQueryBuilder(QueryBuilder qb)
         {
-            // First register all entity types we know about
-            foreach (var pair in EntityTypes)
-            {
-                // Register type-to-alias mapping
-                qb.RegisterTableAliasForType(pair.Value, pair.Key);
-            }
-            
-            // Then scan for types that are used in the query but don't have aliases
-            var typesWithoutAliases = new HashSet<Type>();
-            
-            // Check all types in expression parameters
-            foreach (var pair in ExpressionParameters.Values)
-            {
-                Type paramType = pair.Type;
-                if (!qb.HasAliasForType(paramType) && !typesWithoutAliases.Contains(paramType))
-                {
-                    typesWithoutAliases.Add(paramType);
-                }
-            }
-            
-            // For each type without an alias, look for existing registrations
-            foreach (var type in typesWithoutAliases)
-            {
-                // Look for the type in our entity mappings
-                string existingAlias = null;
-                foreach (var pair in EntityTypes)
-                {
-                    if (pair.Value == type)
-                    {
-                        existingAlias = pair.Key;
-                        break;
-                    }
-                }
+            if (qb == null)
+                return;
                 
-                if (!string.IsNullOrEmpty(existingAlias))
-                {
-                    // Register with the existing alias
-                    qb.RegisterTableAliasForType(type, existingAlias);
-                }
-                else
-                {
-                    // Create a new alias if needed
-                    string newAlias = qb.GetOrCreateAliasForType(type);
-                    
-                    // Register the new type-alias mapping
-                    RegisterEntityType(newAlias, type);
-                }
+            // Register all type mappings in the QueryBuilder
+            foreach (var mapping in Aliases.GetTypeMappings())
+            {
+                Type type = mapping.Key;
+                string alias = mapping.Value;
+                
+                qb.RegisterTableAliasForType(type, alias);
             }
         }
         
-        // Helper to ensure alias mappings are properly applied to a QueryBuilder
+        // For backward compatibility, rename but keep the functionality
         protected internal void ApplyEntityTypesToQueryBuilder(QueryBuilder qb)
         {
-            // First register entity types directly
-            foreach (var pair in EntityTypes)
-            {
-                // Register each entity type with its alias in the QueryBuilder
-                Type entityType = pair.Value;
-                string alias = pair.Key;
-                
-                qb.RegisterTableAliasForType(entityType, alias);
-            }
-            
-            // Then call EnsureTypesHaveAliases to make sure nothing is missing
-            EnsureTypesHaveAliases(qb);
+            ApplyAliasesToQueryBuilder(qb);
         }
         
         // Method to register parameters from a lambda expression

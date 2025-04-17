@@ -69,7 +69,7 @@ namespace ExpressionToSql.Composite
             : base(baseQuery.Dialect)
         {
             BaseQuery = baseQuery;
-            CopyEntityTypesFrom(baseQuery);
+            CopyAliasesFrom(baseQuery);
         }
         
         /// <summary>
@@ -77,89 +77,28 @@ namespace ExpressionToSql.Composite
         /// </summary>
         protected void RegisterJoinAlias(IJoinInfo join, QueryBuilder qb)
         {
-            // First check if the join type already has an alias registered in our EntityTypes
-            string alias = null;
-            foreach (var pair in EntityTypes.Where(et => et.Value == join.JoinType))
-            {
-                alias = pair.Key;
-                break;
-            }
+            // First register the join (right) type
+            string rightAlias = Aliases.RegisterType(join.JoinType);
+            join.TableAlias = rightAlias;
             
-            // If no alias is found, create a new one
-            if (string.IsNullOrEmpty(alias))
-            {
-                alias = qb.GetOrCreateAliasForType(join.JoinType);
-            }
+            string leftAlias = Aliases.GetAliasForType(join.LeftType);
             
-            // Store the alias for this join
-            join.TableAlias = alias;
-            
-            // Register the join entity type in our Query object if not already there
-            if (!EntityTypes.ContainsKey(join.TableAlias))
-            {
-                RegisterEntityType(join.TableAlias, join.JoinType);
-            }
-            
-            // Most importantly, ensure the QueryBuilder knows about this type-to-alias mapping
-            qb.RegisterTableAliasForType(join.JoinType, join.TableAlias);
-            
-            // Register the left-side type as well to ensure complete mapping
-            if (!qb.HasAliasForType(join.LeftType))
-            {
-                string leftAlias = null;
-                
-                // Find the alias for the left type in EntityTypes
-                foreach (var pair in EntityTypes.Where(et => et.Value == join.LeftType))
-                {
-                    leftAlias = pair.Key;
-                    break;
-                }
-                
-                // If we found an alias, register it
-                if (!string.IsNullOrEmpty(leftAlias))
-                {
-                    qb.RegisterTableAliasForType(join.LeftType, leftAlias);
-                }
-                else
-                {
-                    // Create a new alias for the left type if needed
-                    leftAlias = qb.GetOrCreateAliasForType(join.LeftType);
-                    RegisterEntityType(leftAlias, join.LeftType);
-                }
-            }
+            // Register the mappings in the QueryBuilder
+            qb.RegisterTableAliasForType(join.JoinType, rightAlias);
+            qb.RegisterTableAliasForType(join.LeftType, leftAlias);
             
             // Check if this is a join against the root type and store alias mappings if needed
             if (join.LeftType == typeof(TRoot))
             {
-                // Get the current root alias (which might have been changed by a subquery)
-                string rootAlias = qb.GetAliasForType(typeof(TRoot));
-                
-                if (!string.IsNullOrEmpty(rootAlias) && rootAlias != QueryBuilder.TableAliasName)
+                // If we're joining against the root type, ensure any default aliases are mapped
+                if (leftAlias != QueryBuilder.TableAliasName)
                 {
-                    // Ensure that any references to the default alias are mapped to the actual root alias
-                    qb.StoreAliasMapping(QueryBuilder.TableAliasName, rootAlias);
+                    // Tell the AliasRegistry about this redirection
+                    Aliases.RedirectAlias(QueryBuilder.TableAliasName, leftAlias);
+                    
+                    // Also tell the QueryBuilder for backward compatibility
+                    qb.StoreAliasMapping(QueryBuilder.TableAliasName, leftAlias);
                 }
-            }
-            
-            // Important: ensure that both types from the join info are properly registered
-            // This ensures proper alias resolution for all entity types used in joins
-            Type leftType = join.LeftType;
-            Type rightType = join.JoinType;
-            
-            // Ensure aliases exist for both types
-            string leftTypeAlias = qb.GetAliasForType(leftType) ?? qb.GetOrCreateAliasForType(leftType);
-            string rightTypeAlias = join.TableAlias;
-            
-            // Register these in our entity types dictionary too
-            if (!string.IsNullOrEmpty(leftTypeAlias) && !EntityTypes.ContainsValue(leftType))
-            {
-                RegisterEntityType(leftTypeAlias, leftType);
-            }
-            
-            // Right type alias should always be registered by now, but let's be defensive
-            if (!string.IsNullOrEmpty(rightTypeAlias) && !EntityTypes.ContainsValue(rightType))
-            {
-                RegisterEntityType(rightTypeAlias, rightType);
             }
         }
         
